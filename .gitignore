@@ -1,0 +1,4 @@
+mcu-source/*.o
+mcu-source/atpack
+mcu-source/hdd.elf
+mcu-source/hdd.hex
