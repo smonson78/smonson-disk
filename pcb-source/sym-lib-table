@@ -1,0 +1,5 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "AtariHDisk3-rescue")(type "Legacy")(uri "${KIPRJMOD}/AtariHDisk3-rescue.lib")(options "")(descr ""))
+  (lib (name "AtariHDisk4-rescue")(type "KiCad")(uri "${KIPRJMOD}/AtariHDisk4-rescue.kicad_sym")(options "")(descr ""))
+)
