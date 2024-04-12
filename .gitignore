@@ -1,4 +1,14 @@
-mcu-source/*.o
+*.o
+*.elf
+*.hex
+*-bak
+.vscode
 mcu-source/atpack
 mcu-source/hdd.elf
 mcu-source/hdd.hex
+fpga/output_files/
+fpga/db/
+fpga/incremental_db
+fpga/dump.lxt
+fpga/tb
+pcb-souurce/AtariHDisk4-backups
