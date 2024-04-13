@@ -3,15 +3,15 @@ LIBC_MCPU=avr128da48
 FCLK=20000000
 
 # Don't really need fuses for this project
-#OSCCFG_FUSE=
+OSCCFG_FUSE=0x00
+SYSCFG0_FUSE=0xC8
 
-# You have to download this from Atmel's website, and then unzip it into local dir "atpack"
+# You have to download this from Atmel's website, and then unzip it
 ATPACK=atpack
 
 PROGTYPE=jtag2updi
 PROGPORT=/dev/ttyUSB0
 
-# Point to the location where GCC installed lib/ and include/
 LIBC=/home/simon/local/avr
 
 OBJS=fpga_comm.o sdcard.o acsi.o modesense.o commands.o serial.o debug.o timer0.o spi.o rtc.o
@@ -34,8 +34,9 @@ $(TARGET).elf: main.o $(OBJS)
 flash: $(TARGET).hex
 	$(AVRDUDE) -U flash:w:$^:i
 
-#fuses:
-#	#$(AVRDUDE) -U osccfg:w:$(OSCCFG_FUSE):m
+fuses:
+	$(AVRDUDE) -U osccfg:w:$(OSCCFG_FUSE):m
+	$(AVRDUDE) -U syscfg0:w:$(SYSCFG0_FUSE):m
 
 clean:
 	$(RM) *.o *.elf *.hex

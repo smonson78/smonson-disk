@@ -132,9 +132,6 @@ static inline void write_byte(uint8_t value) {
     write_byte_nochecks(value);
 }
 
-// Wait for a spontaneous command byte from the FPGA, which we get when the Atari sends the first byte of an ACSI command
-uint8_t read_first_command_byte();
-
 // Request, then wait for a command byte. The request signals the Atari to send a byte via the ACSI pin IRQ
 uint8_t read_command_byte(uint32_t timeout);
 

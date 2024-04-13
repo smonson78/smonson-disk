@@ -61,26 +61,6 @@ uint8_t get_cmd() {
     return A_CMD_PORT.IN & A_CMD_BIT;
 }
 
-uint8_t read_first_command_byte() {
-    uint8_t is_cmd;
-    uint8_t cmd_byte;
-    set_data_in();
-    do {
-        // Wait for A_INT
-        while (get_int() == 0)
-            ;
-
-        // Pick up byte from data bus and A_CMD pin
-        is_cmd = A_CMD_PORT.IN & A_CMD_BIT;
-        cmd_byte = read_data_port();
-
-        strobe_cs();
-    } while (!is_cmd);
-
-    return cmd_byte;
-}
-
-
 // TODO: 9th bit will be "first command byte" status.
 uint8_t read_command_byte(uint32_t timeout) {
     set_data_in();
@@ -199,7 +179,6 @@ void red_led_off() {
     RED_LED_PORT.OUTCLR = RED_LED_BIT;
 }
 
-
 // The last operation of any command response
 void send_status(uint8_t status) {
     debug_nocr("STATUS: ");
@@ -210,13 +189,9 @@ void send_status(uint8_t status) {
     set_command_mode();
     write_byte(status);
     // Wait for A_INT high so we know the byte was read
-    _delay_us(250);
-    start_clock();
+    _delay_us(5); // Maybe not needed
     while (get_int() == 0)
         ;
-    debug_nocr("INT took ");
-    debug_decimal(get_clock() * 10);
-    debug("ms");
     // Go back to command/read
     set_data_in();
 }

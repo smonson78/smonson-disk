@@ -146,27 +146,41 @@ int main()
     set_acsi_ids(acsi_id_mask);
 
     // Now turn debug down until requested
-    debug_level = 9;
+    debug_level = 5;
     
     // Wait to read data
     set_data_in();
 
     while (1) {
-        // Check if debug level was changed by typing 0-9 on the serial port
-        int16_t serial_in = serial_receive_nowait();
-        if (serial_in >= 0) {
-            if (serial_in >= '0' && serial_in <= '9') {
-                debug_level = serial_in - '0';
-                serial_send_progmem(PSTR("Debug level set to: "));
-                serial_sendchar('0' + debug_level);
-                serial_send_progmem(PSTR("\r\n"));
-            }
-        }
 
         debug("-");
 
+        uint8_t is_cmd;
+        uint8_t cmd_byte;
+        set_data_in();
+        do {
+            // Wait for A_INT
+            while (get_int() == 0) {
+                // Check if debug level was changed by typing 0-9 on the serial port
+                int16_t serial_in = serial_receive_nowait();
+                if (serial_in >= 0) {
+                    if (serial_in >= '0' && serial_in <= '9') {
+                        debug_level = serial_in - '0';
+                        serial_send_progmem(PSTR("Debug level set to: "));
+                        serial_sendchar('0' + debug_level);
+                        serial_send_progmem(PSTR("\r\n"));
+                    }
+                }
+            }
+
+            // Pick up byte from data bus and A_CMD pin
+            is_cmd = A_CMD_PORT.IN & A_CMD_BIT;
+            cmd_byte = read_data_port();
+
+            strobe_cs();
+        } while (!is_cmd);
+
         // Wait for the first byte of a command to arrive
-        uint8_t cmd_byte = read_first_command_byte();
         uint8_t acsi_device = cmd_byte >> 5;
         acsi_opcode_t opcode = cmd_byte & 0x1f;
 

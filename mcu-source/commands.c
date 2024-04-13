@@ -38,7 +38,7 @@ acsi_status_t acsi_format_unit(logical_drive_t *device, uint8_t cmd_offset) {
 
 // Read: read a number of blocks at a given address
 // FIXME: disabled for testing
-//#define MULTI_BLOCK_READ
+#define MULTI_BLOCK_READ
 
 // Read one block from SD card and send via ACSI
 acsi_status_t read_block(logical_drive_t *device, uint32_t addr) {
@@ -185,7 +185,6 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
 
                 // Do the 512th byte without starting a 513th.
                 write_byte_nochecks(spi_in_nowait());
-
                 
                 // Read the unused CRC field (we don't have time to calculate this)
                 spi_transfer(0xff);

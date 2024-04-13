@@ -40,7 +40,9 @@ void serial_init()
 #endif
 
 	// Enable receive interrupt (transmit will be enabled when sending data)
-    USART.CTRLA |= USART_DREIE_bm;
+    USART.CTRLA |= USART_RXCIE_bm;
+
+    sei();
 }
 
 void tx_char(unsigned char data)
@@ -54,10 +56,10 @@ void tx_char(unsigned char data)
         tx_idle = 0;
         
         // Re-enable Data Register Empty interrupt
-        USART1.CTRLA |= USART_DREIE_bm;
+        USART.CTRLA |= USART_DREIE_bm;
 
 	    // Put data into buffer, sends the data
-        USART1.TXDATAL = data;
+        USART.TXDATAL = data;
 	    
         sei();
         return;
@@ -133,7 +135,7 @@ unsigned char serial_receive()
 ISR(USART1_RXC_vect)
 {
     // Receive the data (clears the interrupt bit)
-    uint8_t data = USART1.RXDATAL;
+    uint8_t data = USART.RXDATAL;
     
     // Ignore data that won't fit into the buffer
     if (rx_len == RXBUFFER) {

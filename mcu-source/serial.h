@@ -5,7 +5,7 @@
 
 // Serial buffer FIFO sizes
 #define RXBUFFER 2
-#define TXBUFFER 64
+#define TXBUFFER 255
 
 #define FBAUD 57600L
 #define SERIAL_FORMAT (DATABITS_8 | STOPBITS_1 | PARITY_NONE)
@@ -13,7 +13,7 @@
 #define USART USART1
 #define SERIAL_TX_PORT PORTC
 #define SERIAL_TX_PIN _BV(4)
-
+#define USART1_ALT_POSITION
 
 // ------------- don't change anything below this line, except to add new support
 
