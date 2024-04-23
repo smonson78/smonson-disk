@@ -6,9 +6,10 @@
 mcu-source/atpack
 mcu-source/hdd.elf
 mcu-source/hdd.hex
-fpga/output_files/
-fpga/db/
-fpga/incremental_db
-fpga/dump.lxt
-fpga/tb
+fpga-source/output_files/
+fpga-source/db/
+fpga-source/incremental_db
+fpga-source/dump.lxt
+fpga-source/tb
+fpga-source/hdd.qws
 pcb-source/AtariHDisk4-backups

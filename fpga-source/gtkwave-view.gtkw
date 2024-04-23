@@ -1,0 +1,61 @@
+[*]
+[*] GTKWave Analyzer v3.3.104 (w)1999-2020 BSI
+[*] Mon Jan 29 07:34:05 2024
+[*]
+[dumpfile] "/home/simon/dev/atari-st-hard-disk/fpga/dump.lxt"
+[dumpfile_mtime] "Mon Jan 29 07:31:05 2024"
+[dumpfile_size] 27196
+[savefile] "/home/simon/dev/atari-st-hard-disk/fpga/gtkwave-view.gtkw"
+[timestart] 0
+[size] 2126 1376
+[pos] -1 -1
+*-18.000000 752000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] tb.
+[sst_width] 233
+[signals_width] 261
+[sst_expanded] 1
+[sst_vpaned_height] 523
+@28
+tb.hdd_model.clock[0]
+@22
+tb.hdd_model.f_data[7:0]
+@200
+-
+@28
+tb.hdd_model.f_cs[0]
+tb.hdd_model.f_rw[0]
+tb.hdd_model.f_a1[0]
+tb.irq[0]
+tb.hdd_model.f_ack[0]
+tb.drq[0]
+@200
+-
+-
+@28
+tb.hdd_model.a_cs[0]
+tb.hdd_model.a_bus_dir[0]
+tb.hdd_model.a_int[0]
+@22
+tb.hdd_model.a_data[7:0]
+@28
+tb.hdd_model.a_ready[0]
+tb.hdd_model.a_extra[0]
+@200
+-
+@28
+tb.hdd_model.a_ready[0]
+tb.hdd_model.irq_signal[0]
+@29
+tb.hdd_model.drq_signal[0]
+@200
+-
+@28
+tb.hdd_model.f_cs_falling[0]
+tb.hdd_model.a_cs_rising[0]
+tb.hdd_model.selected[0]
+tb.hdd_model.is_first_command_byte[0]
+tb.hdd_model.in_command_mode[0]
+tb.hdd_model.acsi_byte_available[0]
+tb.hdd_model.avr_byte_available[0]
+[pattern_trace] 1
+[pattern_trace] 0
