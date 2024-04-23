@@ -113,6 +113,7 @@ typedef struct {
 	uint8_t usable;              // Flag for card OK
 	uint32_t capacity;           // In sectors
 	uint8_t ccs;                 // Card Capacity Status. If 0, card uses byte addresses, if 1 then card uses sector addresses
+	uint8_t detected;
 } sdcard_state_t;
 
 extern sdcard_state_t sdcards[2];
@@ -125,7 +126,7 @@ extern uint32_t sdcard_capacity;
 void sdcard_setup();
 void sdcard_init();
 
-void sdcard_defaults(sdcard_state_t *sdcard);
+void sdcard_defaults(sdcard_state_t *sdcard, uint8_t card_id);
 void sd_select(uint8_t bus_id);
 void sd_unselect();
 void sd_command(uint8_t cmd, uint32_t arg);
@@ -137,7 +138,7 @@ void sd_response_r3(uint8_t *buf);
 void sd_response_r7(uint8_t *buf);
 uint8_t sd_reply();
 
-uint8_t wait_spi_response(uint8_t iterations, uint8_t ms_delay, uint8_t x);
+uint8_t wait_spi_response(uint8_t ms_delay, uint8_t x);
 uint8_t wait_spi_response2(uint8_t ms_delay, uint8_t x);
 
 #endif

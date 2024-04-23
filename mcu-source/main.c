@@ -42,6 +42,20 @@ void clk_20MHz() {
     CLKCTRL.MCLKCTRLB = 0b00000000;    
 }
 
+void set_acsi_id_mask() {
+    uint8_t acsi_id_mask = 0;
+    if (logical_drive[0].sdcard->usable) {
+        acsi_id_mask |= (1 << logical_drive[0].acsi_id);
+    }
+    if (logical_drive[1].sdcard->usable) {
+        acsi_id_mask |= (1 << logical_drive[1].acsi_id);
+    }
+    debug_nocr("Setting ACSI mask to ");
+    debug_hex(acsi_id_mask, 2);
+    debug("");
+    set_acsi_ids(acsi_id_mask);
+}
+
 int main()
 {
     // Setup device pins
@@ -95,35 +109,9 @@ int main()
     strobe_cs(); // Ensures CS is deasserted (afterwards)
 
     // Set defaults for SD cards
-    sdcard_defaults(&sdcards[0]);
-    sdcard_defaults(&sdcards[1]);
-    sdcards[0].bus_id = 0;
-    sdcards[1].bus_id = 1;
-
-    // Initialise the SD cards
-    debug("Starting SD card");
-    start_clock();
-
-    // Card 0 is the internal micro-SD card
-    sdcard_init(&sdcards[0]);
-
-    // Card 1 is the removable full-size SD card at the front
-    sdcard_init(&sdcards[1]);
-
-    debug_nocr("--SD setup complete in ");
-    debug_decimal(get_clock() * 10);
-    debug("ms");
+    sdcard_defaults(&sdcards[0], 0);
+    sdcard_defaults(&sdcards[1], 1);
     
-    if (!sdcards[0].usable && !sdcards[1].usable) {
-        debug("SD card init failed (both)");
-        while (1) {
-            red_led_on();
-            _delay_ms(250);
-            red_led_off();
-            _delay_ms(250);
-        }
-    }
-
     // Default logical device info
     logical_drive[0].acsi_id = 0;
     logical_drive[0].sdcard = &sdcards[0];
@@ -133,17 +121,7 @@ int main()
     logical_drive[1].sdcard = &sdcards[1];
     logical_drive[1].sense_key = 0;
 
-    uint8_t acsi_id_mask = 0;
-    if (logical_drive[0].sdcard->usable) {
-        acsi_id_mask |= (1 << logical_drive[0].acsi_id);
-    }
-    if (logical_drive[1].sdcard->usable) {
-        acsi_id_mask |= (1 << logical_drive[1].acsi_id);
-    }
-    debug_nocr("Setting ACSI mask to ");
-    debug_hex(acsi_id_mask, 2);
-    debug("");
-    set_acsi_ids(acsi_id_mask);
+    set_acsi_id_mask();
 
     // Now turn debug down until requested
     debug_level = 5;
@@ -170,6 +148,32 @@ int main()
                         serial_sendchar('0' + debug_level);
                         serial_send_progmem(PSTR("\r\n"));
                     }
+                }
+
+                // Check if SD cards were removed
+                if (sdcards[0].detected && (SDCARD0_DETECT_PORT.IN & SDCARD0_DETECT_BIT)) {
+                    debug("SD card 0 removed");
+                    sdcard_defaults(&sdcards[0], 0);
+                    set_acsi_id_mask();
+                }
+                if (sdcards[1].detected && (SDCARD1_DETECT_PORT.IN & SDCARD1_DETECT_BIT)) {
+                    debug("SD card 1 removed");
+                    sdcard_defaults(&sdcards[1], 1);
+                    set_acsi_id_mask();
+                }
+
+                // Check if SD cards were inserted
+                if (sdcards[0].detected == 0 && (SDCARD0_DETECT_PORT.IN & SDCARD0_DETECT_BIT) == 0) {
+                    debug("SD card 0 inserted");
+                    sdcards[0].detected = 1;
+                    sdcard_init(&sdcards[0]);
+                    set_acsi_id_mask();
+                }
+                if (sdcards[1].detected == 0 && (SDCARD1_DETECT_PORT.IN & SDCARD1_DETECT_BIT) == 0) {
+                    debug("SD card 1 inserted");
+                    sdcards[1].detected = 1;
+                    sdcard_init(&sdcards[1]);
+                    set_acsi_id_mask();
                 }
             }
 
@@ -232,6 +236,7 @@ int main()
 
         while (cmd_length < expected_cmd_length) {
             cmd_byte = read_command_byte(target_time);
+
             if (get_clock() >= target_time) {
                 debug("Timeout error in command phase");
                 error = 1;
