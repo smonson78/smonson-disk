@@ -14,4 +14,5 @@ fpga-source/tb
 fpga-source/hdd.qws
 fpga-source/hdd.cdf
 pcb-source/AtariHDisk4-backups
-atari-utils/settime/*.PRG
+atari-utils/*/*.prg
+atari-utils/*/*.ttp

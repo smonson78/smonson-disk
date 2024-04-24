@@ -14,16 +14,17 @@ STD_CFLAGS=-m68000 -fomit-frame-pointer -fno-builtin -I. -I$(LIBTOS) -ffreestand
 CFLAGS=-Os -g -Wall $(STD_CFLAGS)
 CXXFLAGS=-Os -g -Wall -fno-exceptions -fno-rtti $(STD_CFLAGS)
 
-ALLLIBS=crt0.o crtstuff.o
+ALLLIBS=crt0.o crtstuff.o acsi.o
 LDLIBS=-lgcc $(LIBTOS)/libtos.a $(LIBGCC)
 LDFLAGS=-m68000 -nostdlib -Wl,--relocatable
 
 TARGET=settime
+EXT=ttp
 LIBGCC:=$(shell $(CXX) $(CFLAGS) --print-libgcc-file-name)
 
 all: $(TARGET).PRG
 
-$(TARGET).PRG: $(TARGET).elf
+$(TARGET).$(EXT): $(TARGET).elf
 	@# Strip out .discard section and make .text writable before passing to vlink
 	@#$(OBJCOPY) --remove-section=.discard --writable-text $^ ready.o
 	$(VLINK) $^ -b ataritos -o $@
@@ -51,5 +52,5 @@ $(TARGET).elf: $(TARGET).o $(ALLLIBS)
 debug: $(TARGET).o $(ALLLIBS)
 	$(CXX) -Tdebug.ld $(LDFLAGS) $^ $(LDLIBS) -o info.elf
 
-install: $(TARGET).PRG
+install: $(TARGET).$(EXT)
 	cp --target-directory=$(INSTALL) $^
