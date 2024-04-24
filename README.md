@@ -35,6 +35,7 @@ and unzip it into the directory `mcu-source/atpack`.
 
 #### Prerequisites
 You will need to install Quartus Lite which is a free download from Intel, although you will need to create an account.
+Make sure you install MAX V family support
 You will also need a "USB-Blaster" or compatible programmer.
 If using Linux, you will very likely need to install a `udev` "rules" file for the programmer before it'll work.
 
