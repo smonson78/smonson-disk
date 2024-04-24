@@ -11,11 +11,11 @@ void spi_fast() {
     SPI0.CTRLA |= SPI_ENABLE_bm;
 }
 
-// Switch to 2.5MHz operation
+// Switch to 312.5 KHz operation
 void spi_slow() {
-    // Setup SPI hardware - Master, and double clock rate, with a /16 prescaler
+    // Setup SPI hardware - Master, with a /64 prescaler
     SPI0.CTRLA &= ~SPI_ENABLE_bm;
-    SPI0.CTRLA = SPI_MASTER_bm | SPI_CLK2X_bm | SPI_PRESC_DIV16_gc;
+    SPI0.CTRLA = SPI_MASTER_bm | SPI_PRESC_DIV64_gc;
     SPI0.CTRLA |= SPI_ENABLE_bm;
 }
 

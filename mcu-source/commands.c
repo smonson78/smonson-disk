@@ -37,7 +37,6 @@ acsi_status_t acsi_format_unit(logical_drive_t *device, uint8_t cmd_offset) {
 }
 
 // Read: read a number of blocks at a given address
-// FIXME: disabled for testing
 #define MULTI_BLOCK_READ
 
 // Read one block from SD card and send via ACSI
@@ -58,7 +57,7 @@ acsi_status_t read_block(logical_drive_t *device, uint32_t addr) {
     if (result != 0xff) {
 
         // Wait for card to be ready to send data. It will send 0xff while it's preparing
-        result = wait_spi_response(100, 1, 0xff);
+        result = wait_spi_response(100, 0xff);
         if (result == 0xff) {
             sd_unselect();
             green_led_off();
@@ -112,7 +111,8 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
     green_led_on();
 
     // Source block address
-    addr = cmdbuf[cmd_offset + 1] & 0x1f;
+    //addr = cmdbuf[cmd_offset + 1] & 1f;  // Most-significant byte is 5 bits for SCSI, 8 bits for ACSI
+    addr = cmdbuf[cmd_offset + 1];
     addr <<= 8;
     addr |= cmdbuf[cmd_offset + 2];
     addr <<= 8;
@@ -120,9 +120,10 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
 
     // Transfer length in blocks, 1 to 255 or 0=256
     transfer_length = cmdbuf[cmd_offset + 4];
-    if (transfer_length == 0) {
-        transfer_length = 256;
-    }
+    // SCSI - but not ACSI:
+    //if (transfer_length == 0) {
+    //    transfer_length = 256;
+    //}
 
     debug_nocr("READ (6) ");
     debug_decimal(transfer_length);
@@ -135,7 +136,6 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
         debug("Sector not found");
         green_led_off();
         return STATUS_CHECK_CONDITION;
-
     }
 
     set_data_out();
@@ -155,7 +155,7 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
         // Card responded
         for (uint16_t i = 0; i < transfer_length; i++) {
             // Wait for block ready token.
-            result = wait_spi_response(100, 1, 0xff);
+            result = wait_spi_response(100, 0xff);
             if (result == 0xff) {
                 sd_unselect();
                 green_led_off();
@@ -336,7 +336,7 @@ acsi_status_t sd_card_single_block_write(logical_drive_t *device, uint32_t addr)
     spi_transfer(0xff);
 
     // Wait for the card to send a response token
-    result = wait_spi_response(100, 1, 0xff);
+    result = wait_spi_response(100, 0xff);
 
     if ((result & 0x1f) != SD_CMD_BLOCK_DATA_ACCEPTED) {
         // Data not accepted?
@@ -487,7 +487,7 @@ acsi_status_t acsi_write(logical_drive_t *device, uint8_t cmd_offset) {
             spi_transfer(0xff);
 
             // Wait for the card to send a response token
-            result = wait_spi_response(100, 1, 0xff);
+            result = wait_spi_response(100, 0xff);
 
             if ((result & 0x1e) != 4) {
                 // Data not accepted?
@@ -679,11 +679,17 @@ acsi_status_t scsi_inquiry(logical_drive_t *device, uint8_t cmd_offset) {
         }
 
         // Copy the disk size into the description
-        uint32_t size = device->sdcard->capacity / 2048; // Sectors to megabytes
+        uint64_t size = device->sdcard->capacity;
+        size *= 512;
+        size /= 1000000;
         uint8_t buffer[8];
         uint8_t digit = 0;
         uint8_t pos = 5;
+        uint8_t gb = size > 1000;
 
+        if (gb) {
+            size /= 1000;
+        }
         if (size > 0) {
             while (size > 0) {
                 buffer[digit] = '0' + (size % 10);
@@ -698,7 +704,7 @@ acsi_status_t scsi_inquiry(logical_drive_t *device, uint8_t cmd_offset) {
             buf[16 + pos++] = '0';
         }
 
-        buf[16 + pos++] = 'M';
+        buf[16 + pos++] = gb ? 'G' : 'M';
         buf[16 + pos] = 'B';
 
         // Transfer the standard inquiry data

@@ -55,6 +55,15 @@ void setup() {
     // No pullups, slew rate limit, or inversions on data pins
     DATA_PORT.PINCONFIG = 0;
     DATA_PORT.PINCTRLUPD = 0xff;
+
+    // Enable pull-ups on SD card detect lines
+    SDCARD0_DETECT_PORT.PINCONFIG = PORT_PULLUPEN_bm;
+    SDCARD0_DETECT_PORT.PINCTRLUPD = SDCARD0_DETECT_BIT;
+    SDCARD1_DETECT_PORT.PINCONFIG = PORT_PULLUPEN_bm;
+    SDCARD1_DETECT_PORT.PINCTRLUPD = SDCARD1_DETECT_BIT;
+    SDCARD1_WP_PORT.PINCONFIG = PORT_PULLUPEN_bm;
+    SDCARD1_WP_PORT.PINCTRLUPD = SDCARD1_WP_BIT;
+
 }
 
 uint8_t get_cmd() {

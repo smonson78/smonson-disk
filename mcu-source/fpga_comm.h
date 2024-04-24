@@ -36,6 +36,16 @@
 #define GREEN_LED_PORT PORTC
 #define GREEN_LED_BIT _BV(1)
 
+// SD card-detect
+#define SDCARD0_DETECT_PORT PORTA
+#define SDCARD0_DETECT_BIT _BV(1)
+
+#define SDCARD1_DETECT_PORT PORTA
+#define SDCARD1_DETECT_BIT _BV(7)
+
+#define SDCARD1_WP_PORT PORTB
+#define SDCARD1_WP_BIT _BV(1)
+
 // Data bus direction:
 // HIGH: A (Arduino) --> B (Atari)
 // LOW: B (Atari) --> A (Arduino)

@@ -319,7 +319,7 @@ uint8_t sd_response() {
 }
 
 // Wait for SPI response to not be X
-uint8_t wait_spi_response(uint8_t iterations, uint8_t ms_delay, uint8_t x) {
+uint8_t wait_spi_response(uint8_t ms_delay, uint8_t x) {
     uint8_t result;
 
     // Clock rate is 100Hz
@@ -377,13 +377,15 @@ uint8_t wait_spi_response2(uint8_t ms_delay, uint8_t x) {
 }
 
 // Apply default values to sdcard structure
-void sdcard_defaults(sdcard_state_t *sdcard) {
+void sdcard_defaults(sdcard_state_t *sdcard, uint8_t card_id) {
     // Set state to default
+    sdcard->bus_id = card_id;
     sdcard->type = SD_CARD_TYPE_SDSC;
     sdcard->capacity = 0;
     sdcard->ccs = 0;
     sdcard->initialised = 0;
     sdcard->usable = 0;
+    sdcard->detected = 0;
 }
 
 void sdcard_init(sdcard_state_t *sdcard) {
@@ -394,9 +396,9 @@ void sdcard_init(sdcard_state_t *sdcard) {
 
     debug("SD card init");
     
+    // Give the SD card a bunch of clock pulses to practice on and to clear any existing operation.
     sd_select(sdcard->bus_id);
-    // Give the SD card a bunch of clock pulses to practice on.
-    for (uint8_t i = 0; i < 100; i++) {
+    for (uint16_t i = 0; i < 280; i++) {
         spi_transfer(0xff);
     }
     sd_unselect();
@@ -561,7 +563,7 @@ void sdcard_init(sdcard_state_t *sdcard) {
     if (sd_reply == SD_RESPONSE_R1_CARD_READY) {
 
         // Wait for response to start
-        sd_cmd_buf[0] = wait_spi_response(0xff, 100, 0xff);
+        sd_cmd_buf[0] = wait_spi_response(100, 0xff);
 
         if (sd_cmd_buf[0] == 0xfe) {
             // It's gotta be 0xfe!
