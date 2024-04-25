@@ -26,21 +26,21 @@ typedef struct {
     uint8_t second;
 } smonson_disk_datetime_t;
 
+smonson_disk_datetime_t datetime;
+
 int settime_command() {
 
     uint8_t cmdbuf[11];
     uint8_t dmabuf[16];
 
     uint8_t controller = 0;
-    uint8_t command = ICD_ESCAPE_CMD;
 
     memset(cmdbuf, 0, sizeof(cmdbuf));
     memset(dmabuf, 0, sizeof(dmabuf));
 
-    cmdbuf[0] = (controller << 5) | command;
+    cmdbuf[0] = (controller << 5) | ICD_ESCAPE_CMD;
     cmdbuf[1] = SMONSON_DISK_ACSI_CONFIG_CMD;
-
-    smonson_disk_datetime_t datetime;
+    cmdbuf[2] = SMONSON_SETTIME;
 
     memcpy(dmabuf, &datetime, sizeof(smonson_disk_datetime_t));
     
@@ -75,13 +75,12 @@ int main(int argc, char **argv)
         printf("CLI length: %d\n", cli_len);
         printf("Date format: YYYY-MM-DD plz\n");
     } else {
-        year = getnumber(_basepage + 129, 4);
-        month = getnumber(_basepage + 129 + 5, 2);
-        day = getnumber(_basepage + 129 + 8, 2);
+        datetime.year = getnumber(_basepage + 129, 4);
+        datetime.month = getnumber(_basepage + 129 + 5, 2);
+        datetime.day = getnumber(_basepage + 129 + 8, 2);
 
-        printf("Going to set date: %d-%d-%d\n", year, month, day);
+        printf("Going to set date: %d-%d-%d\n", datetime.year, datetime.month, datetime.day);
 
-        //xbios_supexec(test_inquiry_command);
         xbios_supexec(settime_command);
     }
 

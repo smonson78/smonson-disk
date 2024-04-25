@@ -2,8 +2,6 @@
 
 #include "acsi.h"
 
-
-
 uint16_t wait_ack() {
     // Test bit 5 of GPIP for IRQ
     // Wait for ACK - bit 5 of GPIP is cleared when target device is ready for next byte
@@ -33,42 +31,42 @@ void acsi_command(uint8_t *cmd, uint16_t cmdlen, uint8_t *dmabuf, uint16_t dmale
     // Set FLOCK
     *FLOCK = 0xff;
 
-    // Change DMAOUT bit to reset DMA controller
-    if (direction == 0) {
-        // Read mode
-        *DMA_MODE = 0x190;
-        *DMA_MODE = 0x90;
-    } else {
-        // Write mode
-        *DMA_MODE = 0x90;
-        *DMA_MODE = 0x190;
-    }
+    uint16_t dma_dir_bit = direction ? 0x100 : 0;
+
+    // Change DMAOUT bit to reset DMA controller, and write bit 0x90 to select the sector count register
+    *DMA_MODE = 0x190;
+    *DMA_MODE = 0x90;
+    *DMA_MODE = 0x90 | dma_dir_bit;
+
+    // Load sector count
+    *DMA_SECTOR_COUNT = dmalen;
 
     // Load address for DMA
     *DMA_BASE_LOW = ((uint32_t)dmabuf) & 0xff;
     *DMA_BASE_MID = ((uint32_t)dmabuf >> 8) & 0xff;
     *DMA_BASE_HIGH = ((uint32_t)dmabuf >> 16) & 0xff;
 
-    // Load sector count
-    *DMA_SECTOR_COUNT = dmalen;
-
     // Write command byte 1
-    *DMA_MODE = 0x88; // assert A1 line
+    *DMA_MODE = 0x88 | dma_dir_bit; // assert A1 line
+
     // "0x00co008a: first byte of command, and mode control reg set up for next byte.
     // c = controller number left-shifted one bit e.g. C is really controller 6
-    // o = command opcode not left-shifted"
-
+    // o = 5-bit command opcode not left-shifted"
     // Send all but final byte
     for (uint8_t i = 0; i < cmdlen - 1; i++) {
-        *DMA_DATA = (cmd[i] << 16) | 0x8a;
+        // 8a: 0b10001010
+        //       ^   ^ ^
+        //       |   | +--- /A1 line (deasserted)
+        //       |   +----- CS connected to ACSI bus
+        //       +--------- DRQ connected to floppy drive
+        *DMA_DATA = (cmd[i] << 16) | 0x8a | dma_dir_bit;
         if (wait_ack()) {
             return;
         }
     }
 
-    // Send last byte (also 0) and set up for data transfer
-    // Cleared bit 7 of mode register means we are switching to read mode
-    *DMA_DATA = cmd[cmdlen - 1] << 16;
+    // Send last byte (also 0) and set up for data transfer with DRQ connected to ACSI bus
+    *DMA_DATA = (cmd[cmdlen - 1] << 16) | dma_dir_bit;
     if (wait_ack()) {
         return;
     }
