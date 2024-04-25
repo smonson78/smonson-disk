@@ -440,15 +440,16 @@ void sdcard_init(sdcard_state_t *sdcard) {
 
     // We expect to see IN_IDLE_STATE result for SDHC or an error for old SD
     if (sd_cmd_buf[0] == SD_CMD_R1_IN_IDLE_STATE) {
-        sdcard->type = SD_CARD_TYPE_SDHC; // FIXME it actually means it's AT LEAST SDHC but might be SDXC etc
-        debug("Card is SDHC (ver 2)");
+        // This isn't right. Some SDSC cards end up in here.
+        //sdcard->type = SD_CARD_TYPE_SDHC;
+        //debug("Card is SDHC (ver 2)");
 
         if (sd_cmd_buf[4] != SD_CMD_CHECK_PATTERN) {
             debug("SD CMD failed check pattern");
             return;
         }
     } else {
-        debug("Card is SD (ver 1)");
+        //debug("Card is SD (ver 1)");
         // This is already the default.
         //sdcard->type = SD_CARD_TYPE_SDSC;
     }
@@ -586,6 +587,7 @@ void sdcard_init(sdcard_state_t *sdcard) {
             if (card_version == 0) {
                 // This is the silly way to do things
                 debug("SD version 1");
+                sdcard->type = SD_CARD_TYPE_SDSC;
 
                 // READ_BLOCK_LEN bits 83:80 (4 bits)
                 uint8_t read_bl_len = sd_cmd_buf[5] & 0xf; // bits 83-80
@@ -604,22 +606,40 @@ void sdcard_init(sdcard_state_t *sdcard) {
                 c_size_mult <<= 1;
                 c_size_mult |= sd_cmd_buf[10] >> 7; // bit 47
 
+                uint8_t read_bl_partial = (sd_cmd_buf[10] >> 6) & 1;
+                debug_nocr("READ_BL_PARTIAL: ");
+                debug_decimal(read_bl_partial);
+                debug("");
+
+                uint8_t write_bl_len = sd_cmd_buf[12] & 0x3; // bits 25-24
+                write_bl_len <<= 2;
+                write_bl_len |= (sd_cmd_buf[13] >> 6) & 0x3; // bits 22-23
+                debug_nocr("WRITE_BL_LEN: ");
+                debug_decimal(write_bl_len);
+                debug("");
+
                 // Weird maths
                 sdcard->capacity = c_size + 1;
                 sdcard->capacity *= (1 << (c_size_mult + 2));
                 sdcard->capacity *= card_block_size;
                 sdcard->capacity /= 512;
 
+                // FIXME: how does this work
+                /*
                 if (card_block_size != 512) {
                     // TODO
                     // Unsuitable card, chuck an error here
-                    debug("SD card unsuitable, bad block size");
+                    debug_nocr("SD card unsuitable, bad block size: ");
+                    debug_decimal(card_block_size);
+                    debug("");
                     sd_unselect();
                     return;
-                }
+                }*/
             } else {
                 // The sane way to do things - for CSD version 2.0 (SDHC and SDXC)
                 debug("SD version 2");
+                sdcard->type = SD_CARD_TYPE_SDHC; // FIXME: or SDXC, SDUC
+
                 // C_SIZE vits 69:48 (22 bits)
                 uint32_t blocks = sd_cmd_buf[7] & 0x3f; // bits 69:64
                 blocks <<= 8;

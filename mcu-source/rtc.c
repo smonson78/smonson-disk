@@ -1,4 +1,6 @@
 #include <avr/io.h>
+#include <util/delay_basic.h>
+#include <util/delay.h>
 
 #include "spi.h"
 #include "rtc.h"
@@ -36,20 +38,86 @@ void rtc_write(uint8_t addr, uint8_t *data, uint8_t len) {
     spi_fast();
 }
 
-void rtc_read(datetime_t *dest) {
-    uint8_t datetime[8];
-
+void rtc_read(uint8_t addr, uint8_t *dest, uint8_t len) {
     spi_slow();
     rtc_select();
 
     spi_transfer(MCP7951_READ);
-    spi_transfer(0); // address
-    for (uint8_t i = 0; i < 8; i++) {
-        datetime[i] = spi_transfer(0xff); 
+    spi_transfer(addr);
+    for (uint8_t i = 0; i < len; i++) {
+        dest[i] = spi_transfer(0xff); 
     }
     
     rtc_unselect();
     spi_fast();
+}
+
+void rtc_set(datetime_t *datetime) {
+    // TODO: 
+    // 1. clear ST flag
+    // 2. wait for OSCRUN flag to go to 0
+    // 3. Load new values
+    // 4. Set the ST flag again
+
+    uint8_t rtc_buf[8];
+
+    // Clear ST, VBAT
+    rtc_buf[0] = 0;
+    rtc_write(1, rtc_buf, 1);
+    rtc_write(4, rtc_buf, 1);
+
+    // Wait for oscillator to stop
+    uint8_t success = 0;
+    for (uint8_t i = 0; i < 255; i++) {
+        rtc_read(4, &rtc_buf[0], 1);
+
+        if ((rtc_buf[0] & _BV(5)) == 0) {
+            success = 1;
+            break;
+        }
+
+        _delay_ms(10);
+    }
+
+    if (!success) {
+        debug("Oscillator wouldn't stop");
+        return;
+    }
+
+    // Start oscillator, ST bit at address 1, bit 7
+    rtc_buf[0] = 0x80;
+    rtc_write(1, rtc_buf, 1);
+
+    // Use 24-hour time, 12/24 bit at address 3, bit 6
+    rtc_buf[0] = 0x40;
+    rtc_write(3, rtc_buf, 1);
+
+    // Wait for oscillator to start up
+    success = 0;
+    for (uint8_t i = 0; i < 255; i++) {
+        rtc_read(4, &rtc_buf[0], 1);
+
+        if (rtc_buf[0] & _BV(5)) {
+            success = 1;
+            break;
+        }
+
+        _delay_ms(10);
+    }
+
+    if (success) {
+        // Enable battery backup, VBAT bit at address 4, bit 3
+        rtc_buf[0] = 0x08;
+        rtc_write(4, rtc_buf, 1);
+    } else {
+        debug("Oscillator never started up");
+    }
+}
+
+void rtc_get(datetime_t *dest) {
+    uint8_t datetime[8];
+
+    rtc_read(0, datetime, 8);
 
     // Bloody BCD, why are they still using it in 2024
     uint8_t hundredths = ((datetime[0] >> 4) * 10) + (datetime[0] & 0xf);
@@ -112,26 +180,4 @@ void rtc_read(datetime_t *dest) {
     debug_decimal(hundredths);
 
     debug("");
-}
-
-void rtc_set(datetime_t *datetime) {
-    // TODO: 
-    // 1. clear ST flag
-    // 2. wait for OSCRUN flag to go to 0
-    // 3. Load new values
-    // 4. Set the ST flag again
-
-    uint8_t rtc_buf[8];
-
-    // Start oscillator, ST bit at address 1, bit 7
-    rtc_buf[0] = 0x80;
-    rtc_write(1, rtc_buf, 1);
-
-    // Use 24-hour time, 12/24 bit at address 3, bit 6
-    rtc_buf[0] = 0x40;
-    rtc_write(3, rtc_buf, 1);
-
-    // Enable battery backup, VBAT bit at address 4, bit 3
-    rtc_buf[0] = 0x04;
-    rtc_write(4, rtc_buf, 1);    
 }

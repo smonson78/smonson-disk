@@ -6,6 +6,7 @@
 #include "debug.h"
 #include "commands.h"
 #include "spi.h"
+#include "rtc.h"
 
 // The two logical drives that are present on this device
 logical_drive_t logical_drive[2];
@@ -804,7 +805,56 @@ acsi_status_t ultrasatan_command(logical_drive_t *device, uint8_t cmd_offset) {
     return STATUS_CHECK_CONDITION;
 }
 
-// This doesn't work properly yet
+acsi_status_t smonson_vendor_specific_command_10(logical_drive_t *device, uint8_t cmd_offset) {
+    
+    uint8_t subcommand = cmdbuf[cmd_offset + 1];
+
+    // Set real-time clock
+    if (subcommand == 0x80) {
+        debug("Set clock");
+
+        // Read 16 byte payload
+        uint8_t datetime[16];
+
+        set_data_mode();
+
+        //TODO: timeout
+
+        for (uint8_t byte = 0; byte < 16; byte++) {
+            // Get next byte from FPGA
+            datetime[byte] = read_byte();
+        }
+
+        debug("Received data:");
+        for (uint8_t i = 0; i < 16; i++) {
+            debug_hex(datetime[i], 2);
+            debug_nocr(" ");
+        }
+        debug("");
+
+        uint16_t year = (datetime[0] << 8) | datetime[1];
+        uint8_t month = datetime[2];
+        uint8_t day = datetime[3];
+
+        debug_nocr("Read date: ");
+        debug_decimal(year);
+        debug_nocr("-");
+        debug_decimal(month);
+        debug_nocr("-");
+        debug_decimal(day);
+        debug("");
+
+        datetime_t dt;
+        rtc_set(&dt);
+
+        return STATUS_OK;
+    }
+    
+    device->sense_key = CMD_ERR_INVALID_ARGUMENT;
+    return STATUS_CHECK_CONDITION;
+}
+
+// This doesn't work properly yet. I don't even know if there's much point in it existing at all.
 acsi_status_t report_luns_12(logical_drive_t *device, uint8_t cmd_offset) {
     uint8_t select_report = cmdbuf[cmd_offset + 2];
 
@@ -852,7 +902,6 @@ acsi_status_t report_luns_12(logical_drive_t *device, uint8_t cmd_offset) {
     write_byte(0);
     write_byte(0);
 
-
     return STATUS_OK;
 }
 
@@ -882,6 +931,9 @@ acsi_status_t acsi_icd_escape(logical_drive_t *device) {
         case ULTRASATAN_VENDOR_SPECIFIC_COMMAND_10:
             return ultrasatan_command(device, 1);
         
+        case SMONSON_DISK_VENDOR_SPECIFIC_COMMAND_10:
+            return smonson_vendor_specific_command_10(device, 1);
+
         //case REPORT_LUNS_12:
         //    return report_luns_12(device, 1);
     }

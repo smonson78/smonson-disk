@@ -56,8 +56,7 @@ void set_acsi_id_mask() {
     set_acsi_ids(acsi_id_mask);
 }
 
-int main()
-{
+int main() {
     // Setup device pins
     setup();
 
@@ -82,7 +81,7 @@ int main()
     _delay_ms(10);
 
     datetime_t datetime;
-    rtc_read(&datetime);
+    rtc_get(&datetime);
 
     // TODO: Print datetime for console here instead of in rtc_read
 
