@@ -19,7 +19,9 @@ typedef struct {
 } datetime_t;
 
 void rtc_setup();
-void rtc_read(datetime_t *dest);
+void rtc_read(uint8_t addr, uint8_t *dest, uint8_t len);
 void rtc_write(uint8_t addr, uint8_t *data, uint8_t len);
+void rtc_set(datetime_t *datetime);
+void rtc_get(datetime_t *dest);
 
 #endif

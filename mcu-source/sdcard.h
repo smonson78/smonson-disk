@@ -114,6 +114,7 @@ typedef struct {
 	uint32_t capacity;           // In sectors
 	uint8_t ccs;                 // Card Capacity Status. If 0, card uses byte addresses, if 1 then card uses sector addresses
 	uint8_t detected;
+	uint8_t card_version;        // 
 } sdcard_state_t;
 
 extern sdcard_state_t sdcards[2];
