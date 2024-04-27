@@ -20,10 +20,22 @@ acsi_status_t acsi_test_unit_ready(logical_drive_t *device, uint8_t cmd_offset) 
 acsi_status_t acsi_request_sense(logical_drive_t *device, uint8_t cmd_offset) {
     set_data_mode();
 
-    write_byte(device->sense_key);
-    write_byte(0); // TODO
-    write_byte(0);
-    write_byte(0);
+/*
+    if (device->media_changed) {
+        device->media_changed = 0;
+
+        write_byte(6); // UNIT ATTENTION
+        write_byte(0x28); // not-ready to ready transition
+        write_byte(3); // media changed
+        write_byte(0);
+
+    } else {
+*/
+        write_byte(device->sense_key);
+        write_byte(0); // TODO
+        write_byte(0);
+        write_byte(0);
+//    }
 
     device->sense_key = DRV_ERR_NO_ERROR;
     return STATUS_OK;
@@ -818,7 +830,7 @@ acsi_status_t smonson_vendor_specific_command_10(logical_drive_t *device, uint8_
 
         set_data_mode();
 
-        //TODO: timeout
+        // TODO: timeout
 
         for (uint8_t byte = 0; byte < 16; byte++) {
             // Get next byte from FPGA
@@ -832,20 +844,35 @@ acsi_status_t smonson_vendor_specific_command_10(logical_drive_t *device, uint8_
         }
         debug("");
 
-        uint16_t year = (datetime[0] << 8) | datetime[1];
-        uint8_t month = datetime[2];
-        uint8_t day = datetime[3];
+        rtc_set((datetime_t *)datetime);
 
-        debug_nocr("Read date: ");
-        debug_decimal(year);
-        debug_nocr("-");
-        debug_decimal(month);
-        debug_nocr("-");
-        debug_decimal(day);
+        return STATUS_OK;
+    }
+    // Set real-time clock
+    else if (subcommand == 0x81) {
+        debug("Get clock");
+
+        // Write 16 byte payload
+        uint8_t datetime[16];
+        memset(datetime, 0, 16);
+
+        rtc_get((datetime_t *)datetime);
+
+        set_data_mode();
+
+        // TODO: timeout
+
+        for (uint8_t byte = 0; byte < 16; byte++) {
+            // Send 16 bytes to FPGA
+            write_byte(datetime[byte]);
+        }
+
+        debug("Sent clock data:");
+        for (uint8_t i = 0; i < 16; i++) {
+            debug_hex(datetime[i], 2);
+            debug_nocr(" ");
+        }
         debug("");
-
-        datetime_t dt;
-        rtc_set(&dt);
 
         return STATUS_OK;
     }
