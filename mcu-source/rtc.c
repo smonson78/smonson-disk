@@ -146,7 +146,7 @@ void rtc_get(datetime_t *dest) {
 
     dest->second = (((rtc_buf[1] >> 4) & 7) * 10) + (rtc_buf[1] & 0xf);
     dest->minute = (((rtc_buf[2] >> 4) & 7) * 10) + (rtc_buf[2] & 0xf);
-    dest->hour = (((rtc_buf[3] >> 4) & 1) * 10) + (rtc_buf[3] & 0xf);
+    dest->hour = (((rtc_buf[3] >> 4) & 3) * 10) + (rtc_buf[3] & 0xf);
 
     dest->day = (((rtc_buf[5] >> 4) & 3) * 10) + (rtc_buf[5] & 0xf);
     dest->month = (((rtc_buf[6] >> 4) & 1) * 10) + (rtc_buf[6] & 0xf);
@@ -194,4 +194,11 @@ void rtc_get(datetime_t *dest) {
     //debug_decimal(hundredths);
 
     debug("");
+
+
+
+    debug_nocr("hour reg: ");
+    debug_decimal(rtc_buf[3]);
+    debug("");
+
 }

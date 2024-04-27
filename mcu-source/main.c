@@ -130,8 +130,6 @@ int main() {
 
     while (1) {
 
-        debug("-");
-
         uint8_t is_cmd;
         uint8_t cmd_byte;
         set_data_in();

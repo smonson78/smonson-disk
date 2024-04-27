@@ -844,6 +844,12 @@ acsi_status_t smonson_vendor_specific_command_10(logical_drive_t *device, uint8_
         }
         debug("");
 
+        // Endianness is different between the AVR128DA and 68000.
+        // Only year is affected, all others are bytes
+        uint8_t temp = datetime[0];
+        datetime[0] = datetime[1];
+        datetime[1] = temp;
+
         rtc_set((datetime_t *)datetime);
 
         return STATUS_OK;
@@ -857,6 +863,12 @@ acsi_status_t smonson_vendor_specific_command_10(logical_drive_t *device, uint8_
         memset(datetime, 0, 16);
 
         rtc_get((datetime_t *)datetime);
+
+        // Endianness is different between the AVR128DA and 68000.
+        // Only year is affected, all others are bytes
+        uint8_t temp = datetime[0];
+        datetime[0] = datetime[1];
+        datetime[1] = temp;
 
         set_data_mode();
 
