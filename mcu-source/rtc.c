@@ -195,10 +195,4 @@ void rtc_get(datetime_t *dest) {
 
     debug("");
 
-
-
-    debug_nocr("hour reg: ");
-    debug_decimal(rtc_buf[3]);
-    debug("");
-
 }

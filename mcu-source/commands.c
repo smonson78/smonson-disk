@@ -121,8 +121,6 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
     uint16_t transfer_length;
     acsi_status_t status = STATUS_OK;
 
-    green_led_on();
-
     // Source block address
     //addr = cmdbuf[cmd_offset + 1] & 1f;  // Most-significant byte is 5 bits for SCSI, 8 bits for ACSI
     addr = cmdbuf[cmd_offset + 1];
@@ -144,13 +142,13 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
     debug_hex(addr, 8);
     debug("");
 
-    if ((addr + transfer_length - 1) > sdcard->capacity) {
+    if ((addr + transfer_length - 1) >= sdcard->capacity) {
         device->sense_key = CMD_ERR_INVALID_ADDRESS;
         debug("Sector not found");
-        green_led_off();
         return STATUS_CHECK_CONDITION;
     }
 
+    green_led_on();
     set_data_out();
     set_data_mode();
 
@@ -262,8 +260,6 @@ acsi_status_t read_10(logical_drive_t *device, uint8_t cmd_offset) {
     uint16_t transfer_length;
     acsi_status_t status = STATUS_OK;
 
-    green_led_on();
-
     // Source block address
     addr = cmdbuf[cmd_offset + 2];
     addr <<= 8;
@@ -288,13 +284,13 @@ acsi_status_t read_10(logical_drive_t *device, uint8_t cmd_offset) {
     debug_hex(addr, 8);
     debug("");
 
-    if ((addr + transfer_length - 1) > sdcard->capacity) {
+    if ((addr + transfer_length - 1) >= sdcard->capacity) {
         device->sense_key = CMD_ERR_INVALID_ADDRESS;
         debug("Sector not found");
-        green_led_off();
         return STATUS_CHECK_CONDITION;
     }
 
+    green_led_on();
     set_data_out();
     set_data_mode();
 
@@ -421,6 +417,12 @@ acsi_status_t acsi_write(logical_drive_t *device, uint8_t cmd_offset) {
     uint32_t sd_addr = addr;
     if (sdcard->type == SD_CARD_TYPE_SDSC) {
         sd_addr *= 512;
+    }
+
+    if ((addr + transfer_length - 1) >= sdcard->capacity) {
+        device->sense_key = CMD_ERR_INVALID_ADDRESS;
+        debug("Sector not found");
+        return STATUS_CHECK_CONDITION;
     }
 
     red_led_on();
