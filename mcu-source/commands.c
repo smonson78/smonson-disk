@@ -51,7 +51,7 @@ acsi_status_t acsi_format_unit(logical_drive_t *device, uint8_t cmd_offset) {
 
 // Read: read a number of blocks at a given address
 #define MULTI_BLOCK_READ
-#define SD_INTERRUPTS
+//#define SD_INTERRUPTS
 
 // Read one block from SD card and send via ACSI
 acsi_status_t read_block(logical_drive_t *device, uint32_t addr) {
@@ -86,37 +86,47 @@ acsi_status_t read_block(logical_drive_t *device, uint32_t addr) {
             // Go!
             set_data_out();
 
-            // Start 2-way SPI data transmission from the SD card by writing a dummy value
-            spi_start();
-
 #if defined(SD_INTERRUPTS)
             sdcard_read_sector_to_buffer(&sd_buffer);
+            while (sd_buffer.done == 0) {
+                    debug_nocr("Waiting - count=");
+                    debug_decimal(sd_buffer.count);
+                    debug_nocr(" tx_count=");
+                    debug_decimal(sd_buffer.tx_count);
+                    debug("");
 
-            for (uint16_t byte = 0; byte < 512; byte++) {
-                uint16_t bytes_read;
-
-                do {
-                    cli();
-                    bytes_read = sd_buffer.received_bytes;
-                    sei();
-                } while (bytes_read <= byte);
-
-                write_byte_nochecks(sd_buffer.sector_buffer[byte]);
             }
-#else
+            // Read the unused CRC field
+            spi_transfer(0xff);
+            spi_transfer(0xff);
 
-            for (uint16_t byte = 0; byte < 511; byte++) {
-                uint8_t value = spi_in_nowait();
+#else
+            // Switch to buffered SPI mode
+            //SPI.CTRLA &= ~SPI_ENABLE_bm;
+            SPI.CTRLB |= SPI_BUFEN_bm;
+            //SPI.CTRLA |= SPI_ENABLE_bm;
+
+            // Start 2-way SPI data transmission from the SD card by writing two dummy values
+            spi_start();
+            spi_start();
+
+            for (uint16_t byte = 0; byte < 510; byte++) {
+                //uint8_t value = spi_in_nowait();
+                // Then send the value
+                write_byte_nochecks(spi_in_nowait());
                 // Keep the SPI transfer going for the next byte
                 spi_start();
-                // Then send the value
-                write_byte_nochecks(value);
             }
-            // Do the 512th byte without starting a 513th.
+            // Do the 511th and 512th byte without sending
             write_byte_nochecks(spi_in_nowait());
+            write_byte_nochecks(spi_in_nowait());
+
+            // disable buffered mode
+            //SPI.CTRLA &= ~SPI_ENABLE_bm;
+            SPI.CTRLB &= ~SPI_BUFEN_bm;
+            //SPI.CTRLA |= SPI_ENABLE_bm;
             
-            // TODO
-            // Read the unused CRC field
+            // Read the unused CRC field (we don't have time to calculate this)
             spi_transfer(0xff);
             spi_transfer(0xff);
 #endif
@@ -199,25 +209,50 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
                 // Go!
                 //debug("Got block ready token");
 
-                // Start 2-way SPI data transmission from the SD card by writing a dummy value.
-                // This will proceed in the background and we'll receive a byte back in the buffer.
+
+#if defined(SD_INTERRUPTS)
+                sdcard_read_sector_to_buffer(&sd_buffer);
+                while (sd_buffer.done == 0) {
+                    debug_nocr("Waiting - count=");
+                    debug_decimal(sd_buffer.count);
+                    debug_nocr(" tx_count=");
+                    debug_decimal(sd_buffer.tx_count);
+                    debug("");
+                }
+                // Read the unused CRC field
+                spi_transfer(0xff);
+                spi_transfer(0xff);
+
+#else
+                // Switch to buffered SPI mode
+                //SPI.CTRLA &= ~SPI_ENABLE_bm;
+                SPI.CTRLB |= SPI_BUFEN_bm;
+                //SPI.CTRLA |= SPI_ENABLE_bm;
+
+                // Start 2-way SPI data transmission from the SD card by writing two dummy values
                 spi_start();
-                for (uint16_t byte = 0; byte < 511; byte++) {
-                    // TODO could this be faster? It seems like we should avoid an idle condition entirely.
-                    // On reading the atmega324p datasheet, I don't think it's possible to run SPI continuously.
-                    uint8_t value = spi_in_nowait();
+                spi_start();
+
+                for (uint16_t byte = 0; byte < 510; byte++) {
+                    //uint8_t value = spi_in_nowait();
+                    // Then send the value
+                    write_byte_nochecks(spi_in_nowait());
                     // Keep the SPI transfer going for the next byte
                     spi_start();
-                    // Then send the value
-                    write_byte_nochecks(value);
                 }
-
-                // Do the 512th byte without starting a 513th.
+                // Do the 511th and 512th byte without sending
                 write_byte_nochecks(spi_in_nowait());
+                write_byte_nochecks(spi_in_nowait());
+
+                // disable buffered mode
+                //SPI.CTRLA &= ~SPI_ENABLE_bm;
+                SPI.CTRLB &= ~SPI_BUFEN_bm;
+                //SPI.CTRLA |= SPI_ENABLE_bm;
                 
                 // Read the unused CRC field (we don't have time to calculate this)
                 spi_transfer(0xff);
                 spi_transfer(0xff);
+#endif
                 //debug("Fin xfer from card");
             }            
         }

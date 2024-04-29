@@ -118,12 +118,13 @@ typedef struct {
 } sdcard_state_t;
 
 // 512 bytes + 2 CRC bytes
-#define BUFFER_SIZE (512 + 2)
+#define BUFFER_SIZE 512
 
 typedef struct {
     uint8_t sector_buffer[BUFFER_SIZE];
-    uint16_t received_bytes;
-    uint16_t sent_bytes;
+	uint8_t done;
+	uint16_t count;
+	uint16_t tx_count;
 } sd_sector_buffer_t;
 
 extern sd_sector_buffer_t sd_buffer;

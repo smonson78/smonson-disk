@@ -4,6 +4,7 @@
 #include "timer0.h"
 #include "debug.h"
 #include "spi.h"
+#include "fpga_comm.h"
 
 // Card data for each card in the system
 // In this case, one internal card, and one front-facing card slot
@@ -697,18 +698,22 @@ void sdcard_init(sdcard_state_t *sdcard) {
     return;
 }
 
+// Turns out this was all far slower:
+
 // Start an interrupt-driven SPI conversation straight into a buffer
 void sdcard_read_sector_to_buffer(sd_sector_buffer_t *buffer) {
-
     cli();
 
     // Switch to buffered mode
     SPI.CTRLB |= SPI_BUFEN_bm;
 
     // Restart data transfer
-    buffer->received_bytes = 0;
-    buffer->sent_bytes = 0;
-
+    //buffer->rp = buffer->sector_buffer;
+    //buffer->tp = buffer->sector_buffer;
+    //buffer->end = buffer->sector_buffer + BUFFER_SIZE;
+    buffer->done = 0;
+    buffer->count = 0;
+    buffer->tx_count = 0;
     // Enable interrupt
     SPI.INTCTRL |= SPI_RXCIE_bm | SPI_DREIE_bm;
 
@@ -721,17 +726,18 @@ ISR(SPI0_INT_vect)
     // Receive Complete
     if (SPI.INTFLAGS & SPI_RXCIF_bm) {
         // Receive the data
-        uint8_t data = SPI.DATA;
-        
-        // Otherwise dump it in the buffer
-        sd_buffer.sector_buffer[sd_buffer.received_bytes++] = data;
+        //*(sd_buffer.rp++) = SPI.DATA;
+        write_byte_nochecks(SPI.DATA);
+        sd_buffer.count++;
 
         // Stop at the end of the buffer and then disable the interrupt
-        if (sd_buffer.received_bytes == BUFFER_SIZE) {
+        if (sd_buffer.count == BUFFER_SIZE) {
             SPI.INTCTRL &= ~SPI_RXCIE_bm;
 
             // Also disable buffered mode
             SPI.CTRLB &= ~SPI_BUFEN_bm;
+
+            sd_buffer.done = 1;
 
             return;
         }
@@ -739,9 +745,10 @@ ISR(SPI0_INT_vect)
 
     // Data Register Empty
     if (SPI.INTFLAGS & SPI_DREIF_bm) {
-        if (sd_buffer.sent_bytes < BUFFER_SIZE) {
-            SPI.DATA = 0xff;
-            sd_buffer.sent_bytes++;
+        SPI.DATA = 0xff;
+        sd_buffer.tx_count++;
+        if (sd_buffer.tx_count == BUFFER_SIZE) {
+            SPI.INTCTRL &= ~SPI_DREIE_bm;
         }
     }
 }

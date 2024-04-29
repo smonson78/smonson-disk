@@ -19,7 +19,7 @@ OBJS=fpga_comm.o sdcard.o acsi.o modesense.o commands.o serial.o debug.o timer0.
 AVRDUDE=avrdude -C ~/dev/jtag2updi/avrdude.conf -p $(AVRDUDE_MCPU) -c $(PROGTYPE) -P $(PROGPORT) -B 19200
 
 CC=avr-gcc
-CFLAGS=-g -Wall -O2 -mmcu=$(LIBC_MCPU) -B$(ATPACK)/gcc/dev/$(LIBC_MCPU) -DF_CPU=$(FCLK) -I$(LIBC)/include
+CFLAGS=-g -Wall -O3 -mmcu=$(LIBC_MCPU) -B$(ATPACK)/gcc/dev/$(LIBC_MCPU) -DF_CPU=$(FCLK) -I$(LIBC)/include
 #LDLIBS=-lgcc
 LDFLAGS=--sysroot $(LIBC)
 
