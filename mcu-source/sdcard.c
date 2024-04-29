@@ -9,6 +9,9 @@
 // In this case, one internal card, and one front-facing card slot
 sdcard_state_t sdcards[2];
 
+// SD card sector buffer
+sd_sector_buffer_t sd_buffer;
+
 void sdcard_setup() {
 
     // Card 0 CS - output
@@ -692,4 +695,53 @@ void sdcard_init(sdcard_state_t *sdcard) {
     sdcard->initialised = 1;
     sdcard->usable = 1;
     return;
+}
+
+// Start an interrupt-driven SPI conversation straight into a buffer
+void sdcard_read_sector_to_buffer(sd_sector_buffer_t *buffer) {
+
+    cli();
+
+    // Switch to buffered mode
+    SPI.CTRLB |= SPI_BUFEN_bm;
+
+    // Restart data transfer
+    buffer->received_bytes = 0;
+    buffer->sent_bytes = 0;
+
+    // Enable interrupt
+    SPI.INTCTRL |= SPI_RXCIE_bm | SPI_DREIE_bm;
+
+    sei();
+}
+
+// SPI activity vector
+ISR(SPI0_INT_vect)
+{
+    // Receive Complete
+    if (SPI.INTFLAGS & SPI_RXCIF_bm) {
+        // Receive the data
+        uint8_t data = SPI.DATA;
+        
+        // Otherwise dump it in the buffer
+        sd_buffer.sector_buffer[sd_buffer.received_bytes++] = data;
+
+        // Stop at the end of the buffer and then disable the interrupt
+        if (sd_buffer.received_bytes == BUFFER_SIZE) {
+            SPI.INTCTRL &= ~SPI_RXCIE_bm;
+
+            // Also disable buffered mode
+            SPI.CTRLB &= ~SPI_BUFEN_bm;
+
+            return;
+        }
+    }
+
+    // Data Register Empty
+    if (SPI.INTFLAGS & SPI_DREIF_bm) {
+        if (sd_buffer.sent_bytes < BUFFER_SIZE) {
+            SPI.DATA = 0xff;
+            sd_buffer.sent_bytes++;
+        }
+    }
 }

@@ -51,6 +51,7 @@ acsi_status_t acsi_format_unit(logical_drive_t *device, uint8_t cmd_offset) {
 
 // Read: read a number of blocks at a given address
 #define MULTI_BLOCK_READ
+#define SD_INTERRUPTS
 
 // Read one block from SD card and send via ACSI
 acsi_status_t read_block(logical_drive_t *device, uint32_t addr) {
@@ -83,11 +84,27 @@ acsi_status_t read_block(logical_drive_t *device, uint32_t addr) {
 
         if (result == SD_CMD_BLOCK_READY_TOKEN) {
             // Go!
-
             set_data_out();
 
             // Start 2-way SPI data transmission from the SD card by writing a dummy value
             spi_start();
+
+#if defined(SD_INTERRUPTS)
+            sdcard_read_sector_to_buffer(&sd_buffer);
+
+            for (uint16_t byte = 0; byte < 512; byte++) {
+                uint16_t bytes_read;
+
+                do {
+                    cli();
+                    bytes_read = sd_buffer.received_bytes;
+                    sei();
+                } while (bytes_read <= byte);
+
+                write_byte_nochecks(sd_buffer.sector_buffer[byte]);
+            }
+#else
+
             for (uint16_t byte = 0; byte < 511; byte++) {
                 uint8_t value = spi_in_nowait();
                 // Keep the SPI transfer going for the next byte
@@ -102,6 +119,7 @@ acsi_status_t read_block(logical_drive_t *device, uint32_t addr) {
             // Read the unused CRC field
             spi_transfer(0xff);
             spi_transfer(0xff);
+#endif
         }
     } else {
         debug_nocr("*** ERR invalid resp from CMD17 reading blk ");

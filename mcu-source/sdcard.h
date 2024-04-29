@@ -117,6 +117,17 @@ typedef struct {
 	uint8_t card_version;        // 
 } sdcard_state_t;
 
+// 512 bytes + 2 CRC bytes
+#define BUFFER_SIZE (512 + 2)
+
+typedef struct {
+    uint8_t sector_buffer[BUFFER_SIZE];
+    uint16_t received_bytes;
+    uint16_t sent_bytes;
+} sd_sector_buffer_t;
+
+extern sd_sector_buffer_t sd_buffer;
+
 extern sdcard_state_t sdcards[2];
 
 extern uint8_t sdcard_initialised;
@@ -141,5 +152,7 @@ uint8_t sd_reply();
 
 uint8_t wait_spi_response(uint8_t ms_delay, uint8_t x);
 uint8_t wait_spi_response2(uint8_t ms_delay, uint8_t x);
+
+void sdcard_read_sector_to_buffer(sd_sector_buffer_t *buffer);
 
 #endif
