@@ -129,10 +129,10 @@ static inline void write_data_port(uint8_t value) {
 
 // Write a byte without requesting the next
 static inline void write_byte_nochecks(uint8_t value) {
+    write_data_port(value);
     // wait for INT high
     while (get_int() == 0)
         ;
-    write_data_port(value);
     strobe_cs();
 }
 

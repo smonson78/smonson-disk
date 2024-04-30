@@ -52,7 +52,7 @@ acsi_status_t acsi_format_unit(logical_drive_t *device, uint8_t cmd_offset) {
 // Read: read a number of blocks at a given address
 #define MULTI_BLOCK_READ
 //#define SD_INTERRUPTS
-//#define DOUBLE_BUFFERED_MODE
+#define DOUBLE_BUFFERED_MODE
 
 // Read one block from SD card and send via ACSI
 acsi_status_t read_block(logical_drive_t *device, uint32_t addr) {
@@ -196,7 +196,7 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
 
 #ifdef DOUBLE_BUFFERED_MODE
         // Switch to double-buffered data mode
-        extra_data_byte |= 0b01000010;
+        extra_data_byte |= 0b00000010;
         write_extra_byte();
 #endif
 
@@ -238,6 +238,7 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
                 //SPI.CTRLA |= SPI_ENABLE_bm;
 
                 // Start 2-way SPI data transmission from the SD card by writing two dummy values
+                // This prefills the 2-byte FIFO
                 spi_start();
                 spi_start();
 
@@ -266,8 +267,11 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
         }
 
 #ifdef DOUBLE_BUFFERED_MODE
-        // Switch off double-buffered data mode
-        extra_data_byte &= 0b11111101;
+        // Switch off double-buffered data mode and clear the buffers
+        extra_data_byte |= 0b00000001;
+        write_extra_byte();
+
+        extra_data_byte &= 0b11111100;
         write_extra_byte();
 #endif        
 
