@@ -341,10 +341,10 @@ int main() {
             send_status(status);
         }
 
-        // Manually unselect device
-        extra_data_byte |= 0b01000000;
+        // Manually unselect device and clear buffers
+        extra_data_byte |= 0b01000001;
         write_extra_byte();
-        extra_data_byte &= 0b10111111;
+        extra_data_byte &= 0b10111110;
     }
     
     return 0;

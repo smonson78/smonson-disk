@@ -289,7 +289,7 @@ module tb();
         #5;
         extra_data_write[6] = 0;
 
-        #50;
+        #100;
 
 
 
@@ -426,8 +426,8 @@ module tb();
         f_ack = 1;
         #1;
 
-        // ... the remaining 255 bytes
-        repeat (255) begin
+        // ... the remaining X number of bytes (512 in reality)
+        repeat (16) begin
             // AVR is ready to receive a data-mode byte
             a_ready = 1;
 
@@ -453,6 +453,207 @@ module tb();
             // And Atari finishes its /ACK pulse
             f_ack = 1;
             #2;
+
+        end
+
+        // Atari has finished writing, so RW returns high
+        f_rw = 1;
+        #2;
+
+        // Data phase over, AVR switches back to command mode
+        a_extra = 1;
+        a_bus_dir = 1;
+        #1;
+        extra_data_write[5] = 1;
+        avr_data = extra_data_write;
+        a_cs = 1;
+        #5;
+        a_cs = 0;
+        #5;
+        a_extra = 0;
+        a_bus_dir = 0;
+        #5;
+
+        // STATUS phase. AVR writes one command-mode status byte
+        #2;
+        a_bus_dir = 1;
+        avr_data = 8'h33;
+        #2;
+
+        wait (a_int) #1;
+        a_cs = 1;
+        #5;
+        a_cs = 0;
+
+        // Atari reads the byte
+        wait (!irq) #5;
+        f_cs = 0;
+        #5;
+        f_cs = 1;
+        #5;
+
+        // AVR manually ends the transfer by unselecting the device
+        a_extra = 1;
+        a_bus_dir = 1;
+        #1;
+        extra_data_write[6] = 1;
+        avr_data = extra_data_write;
+        a_cs = 1;
+        #5;
+        a_cs = 0;
+        #5;
+        a_extra = 0;
+        a_bus_dir = 0;
+        #5;
+        extra_data_write[6] = 0;
+
+        #100;
+
+
+
+
+
+
+
+
+        // A sector READ (disk to Atari) in double-buffered mode
+
+        // Atari pins at default state
+        f_cs = 1;
+        f_ack = 1;
+        f_rw = 1;
+        f_a1 = 1;
+        data = 8'hff;
+
+        // AVR pins at default state
+        a_extra = 0;
+        a_ready = 0;
+        a_bus_dir = 0;
+        a_cs = 0;
+        avr_data = 8'hff;
+
+        #15;
+
+        // Start a short WRITE command - byte 0
+        data[7:5] = 3'b0; // ACSI_ID = 0
+        data[4:0] = 5'b00110; // OPCODE = 0x06
+        #5;
+        f_rw = 0;
+        f_a1 = 0;
+        #5;
+        f_cs = 0;
+        #5;
+        f_cs = 1;
+        #5;
+        f_rw = 1;
+        f_a1 = 1;
+        #1;
+
+        // AVR picks it up
+        wait (a_int) #5;
+        a_cs = 1;
+        #5;
+        a_cs = 0;
+        #1;
+
+        // Byte 1 - 5
+        repeat (5) begin
+
+            // AVR asserts readiness for another byte
+            a_ready = 1;
+            #5;
+
+            // Atari waits for IRQ
+            wait (f_irq);
+
+            // Atari strobes data in
+            data = 0;
+            f_rw = 0;
+            #1;
+            f_cs = 0;
+            #5;
+            f_cs = 1;
+            #1;
+            f_rw = 1;
+
+            // FPGA automatically sets a_int
+
+            // AVR Picks up the byte
+            wait (a_int);
+            a_ready = 0;
+            #5;
+            a_cs = 1;
+            #5;
+            a_cs = 0;
+            #5;
+        end
+
+        #10;
+
+        // Phase 2: AVR switches to data mode to send 512 bytes sector data
+
+        // Extra data write to set command mode off (i.e. data mode) and double-buffered mode ON
+        a_extra = 1;
+        a_bus_dir = 1;
+        #1;
+        extra_data_write[1] = 1;
+        extra_data_write[5] = 0;
+        avr_data = extra_data_write;
+        a_cs = 1;
+        #5;
+        a_cs = 0;
+        #5;
+        a_extra = 0;
+        #5;
+
+
+        // Atari expects to read data, so RW remains high
+
+        // AVR is going to write data, so a_bus_dir remains high
+
+        // A long ACK pulse to test the FPGA will handle it correctly:
+
+
+        // Because FPGA can hold an extra buffered byte, there will 2 bytes on the wire at once. Therefore,
+        // the AVR will send one additional byte now, and then 15 in the loop instead of 16
+
+        // AVR wants to send a data-mode byte. Wait for device ready
+        wait (a_int) #5;
+
+        // AVR strobes in a write
+        avr_data = 8'h55;
+        a_cs = 1;
+        #2;
+        a_cs = 0;
+        #2;
+
+        repeat (15) begin
+            // AVR wants to send a data-mode byte. Wait for device ready
+            wait (a_int) #5;
+
+            // AVR strobes in a write
+            avr_data = 8'h55;
+            a_cs = 1;
+            #2;
+
+            // Atari waits for /DRQ
+            wait (~drq) #2;
+            #1;
+            // Atari acknowledges receipt of data byte on bus with ACK signal
+            f_ack = 0;
+            #1;
+
+            // Meanwhile, AVR finishes its CS pulse from when the byte was written
+            a_cs = 0;
+
+            // A long delay where the Atari is still holding onto /ACK (it's on a fixed 250ns time)
+            #10;
+
+            // AVR wants to send the next byte and is waiting for a_int here
+            //`assert(a_int == 0);
+
+            // And Atari finally finishes its ACK pulse, a_int should now go high
+            f_ack = 1;
 
         end
 
@@ -503,7 +704,7 @@ module tb();
         #5;
         extra_data_write[6] = 0;
 
-        #50;
+        #100;
 
 
 
@@ -556,6 +757,8 @@ module tb();
         end
 */
 
+/*
+Not finished
 
         // INQUIRY command
 
@@ -688,7 +891,7 @@ module tb();
         f_cs = 1;
         #5;
 
-
+*/
 
         #1000;
         $display($time, "<< Simulation Complete >>");
