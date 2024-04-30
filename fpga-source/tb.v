@@ -53,6 +53,8 @@ module tb();
     wire drq = ~f_drq;
     wire irq = ~f_irq;
 
+    reg [7:0] testdata = 0;
+
     hdd hdd_model(
 	    clock,
 	    // Atari signals
@@ -621,18 +623,21 @@ module tb();
         wait (a_int) #5;
 
         // AVR strobes in a write
-        avr_data = 8'h55;
+        testdata = 1;
+        avr_data = testdata;
         a_cs = 1;
         #2;
         a_cs = 0;
         #2;
+
+        testdata = testdata + 1;
 
         repeat (15) begin
             // AVR wants to send a data-mode byte. Wait for device ready
             wait (a_int) #5;
 
             // AVR strobes in a write
-            avr_data = 8'h55;
+            avr_data = testdata;
             a_cs = 1;
             #2;
 
@@ -655,6 +660,7 @@ module tb();
             // And Atari finally finishes its ACK pulse, a_int should now go high
             f_ack = 1;
 
+            testdata = testdata + 1;
         end
 
         // Data phase over, AVR switches back to command mode

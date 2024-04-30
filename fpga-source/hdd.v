@@ -109,6 +109,7 @@ module hdd (
 	
 	// Edge detectors
 	wire f_cs_falling = f_cs_edge_detect == 2'b10;
+    wire f_cs_rising = f_cs_edge_detect == 2'b01;
 	always @(posedge clock) begin
 		f_cs_edge_detect <= {f_cs_edge_detect[0], f_cs};
 	end
@@ -235,12 +236,12 @@ module hdd (
                 avr_byte <= a_data;
                 avr_byte_available <= 1;
             end
-		end else if (in_command_mode && f_rw && f_cs_falling) begin
+		end else if (in_command_mode && f_rw && f_cs_rising) begin
 			// Atari receives a byte in command mode
 			avr_byte_available <= avr_byte_buf_available;
             avr_byte <= avr_byte_buf;
             avr_byte_buf_available <= 0;
-		end else if (in_data_mode && f_rw && f_ack_falling) begin
+		end else if (in_data_mode && f_rw && f_ack_rising) begin
 			// Atari receives a byte in data mode
 			avr_byte_available <= avr_byte_buf_available;
             avr_byte <= avr_byte_buf;
