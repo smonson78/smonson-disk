@@ -42,6 +42,25 @@ void clk_20MHz() {
     CLKCTRL.MCLKCTRLB = 0b00000000;    
 }
 
+// Switch internal clock to 20MHz mode
+void clk_24MHz() {
+    // Magic number to allow clock changes
+    //CCP = CCP_IOREG_gc;
+
+    // Switch to internal high-frequency oscillator
+    //CLKCTRL.MCLKCTRLA = 0b00000000; // It's already the default
+
+    // Set internal oscillator to run at 24MHz
+    CCP = CCP_IOREG_gc;
+    CLKCTRL.OSCHFCTRLA = 0b00100100;
+
+    // Magic number to allow clock changes
+    CCP = CCP_IOREG_gc;
+
+    // Prescaler disabled
+    CLKCTRL.MCLKCTRLB = 0b00000000;    
+}
+
 void set_acsi_id_mask() {
     uint8_t acsi_id_mask = 0;
     if (logical_drive[0].sdcard->usable) {

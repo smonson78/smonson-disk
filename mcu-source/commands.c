@@ -143,6 +143,50 @@ acsi_status_t read_block(logical_drive_t *device, uint32_t addr) {
     return STATUS_OK;
 }
 
+static inline void transfer_1_byte() {
+    write_byte_nochecks(spi_in_nowait());
+    // Keep the SPI transfer going for the next byte
+    spi_start();
+}
+
+static inline void transfer_16_bytes() {
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+}
+
+static inline void transfer_256_bytes() {
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+}
+
 acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
     sdcard_state_t *sdcard = device->sdcard;
 
@@ -241,14 +285,44 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
                 // This prefills the 2-byte FIFO
                 spi_start();
                 spi_start();
-
+/*
                 for (uint16_t byte = 0; byte < 510; byte++) {
                     //uint8_t value = spi_in_nowait();
                     // Then send the value
                     write_byte_nochecks(spi_in_nowait());
                     // Keep the SPI transfer going for the next byte
                     spi_start();
-                }
+                }*/
+                transfer_256_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
                 // Do the 511th and 512th byte without sending
                 write_byte_nochecks(spi_in_nowait());
                 write_byte_nochecks(spi_in_nowait());
