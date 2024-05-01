@@ -937,17 +937,19 @@ acsi_status_t mode_sense_10(logical_drive_t *device, uint8_t cmd_offset) {
 
 acsi_status_t read_capacity_10(logical_drive_t *device, uint8_t cmd_offset) {
 
+    uint32_t capacity = device->sdcard->capacity - 1;
+
     debug_nocr("READ CAPACITY (10) returning ");
-    debug_decimal(device->sdcard->capacity);
+    debug_decimal(capacity);
     debug(" blocks");
 
     set_data_mode();
     set_data_out();
 
-    write_byte(device->sdcard->capacity >> 24); // Device capacity (MSB)
-    write_byte((device->sdcard->capacity >> 16) & 0xff);
-    write_byte((device->sdcard->capacity >> 8) & 0xff);
-    write_byte(device->sdcard->capacity & 0xff);
+    write_byte(capacity >> 24); // Device capacity (MSB)
+    write_byte((capacity >> 16) & 0xff);
+    write_byte((capacity >> 8) & 0xff);
+    write_byte(capacity & 0xff);
 
     // 512 bytes
     write_byte(0x0); // Block length (MSB)
