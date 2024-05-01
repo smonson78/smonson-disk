@@ -105,7 +105,7 @@ static inline void strobe_cs() {
     A_CS_PORT.OUTCLR = A_CS_BIT;
 }
 
-// Ready a byte from the FPGA
+// Read a byte from the FPGA
 uint8_t read_byte();
 
 static inline uint8_t read_byte_nochecks() {
@@ -170,12 +170,6 @@ void green_led_on();
 void green_led_off();
 void red_led_on();
 void red_led_off();
-
-// Turn the LEDs on or under in debug mode
-void debug_green_led_on();
-void debug_red_led_on();
-void debug_green_led_off();
-void debug_red_led_off();
 
 // Enable/disable SPI pass-through on the FPGA so that the AVR can communicate directly with it
 void enable_spi();
