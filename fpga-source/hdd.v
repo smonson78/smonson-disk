@@ -9,8 +9,6 @@ module hdd (
 );
 
 	input clock;
-	//output a_clock;
-
 	inout [7:0] f_data;
 	output f_bus_dir;
 	input f_cs;             // Latch a byte in
@@ -23,7 +21,7 @@ module hdd (
 
 	inout [7:0] a_data;
 	output a_cmd;           // This bit is high when the byte received from the Atari was a command byte (it's effectively an extra data line)
-	output a_int;           // asserted to indicate to AVR that a byte has been received
+	output a_int;           // asserted to indicate to AVR that a byte has been received or could be sent
 	input a_bus_dir;        // low = FPGA writes to bus; high = AVR writes to bus
 	input a_cs;             // strobe high to latch input/output
     
@@ -45,12 +43,22 @@ module hdd (
 	// This is a bitmap with MSB indicating ACSI ID 7 and so on.
 	reg [7:0] acsi_ids;
 
+    // NOTE: Bits 0 and 6 are read directly from the bus and not stored in the register
+    // Bit 0   - clear buffers if written to 1
+    // Bit 1   - double-buffered send mode
+    // Bit 2-3 - unused
+    // Bit 5   - command/data mode (command high, data low)
+    // Bit 6   - explicit unselect device if written to 1
+    // Bit 7   - unused
 	reg [7:0] extra_data_write;
 
+    wire double_buffer_mode = extra_data_write[1];
 	// Command/data phase control
 	wire in_command_mode = extra_data_write[5];
 	wire in_data_mode = ~extra_data_write[5];
 	
+    wire extra_data_write_condition = a_cs_rising && a_bus_dir && a_extra && !a_extra_2;
+    
 	initial begin
         // Respond to no ACSI IDs by default
 		acsi_ids = 8'b0;
@@ -62,18 +70,15 @@ module hdd (
 	// Writes to the two internal registers - extra_data and acsi_ids
 	always @(posedge clock) begin
 		if (!f_reset) begin
-			extra_data_write <= 0;
+			extra_data_write <= 8'b00100000;
 			acsi_ids <= 0;
 		end
-		else if (a_cs_rising && a_bus_dir && a_extra && !a_extra_2) begin
+		else if (extra_data_write_condition) begin
             // Get extra data byte from AVR
 			extra_data_write <= a_data;
         end else if (a_cs_rising && a_bus_dir && !a_extra && a_extra_2) begin
             // Get ACSI IDs from AVR
-           // acsi_ids <= {a_data[7], 2'b00, a_data[4:0]}; // Zero out bit 5 and 6 for debug
             acsi_ids <= a_data;
-			// FIXME: Somehow, bits 5 and 6 are being set here when any other bit is set.
-			// Hardware issue???
 		end
 	end
 	
@@ -104,6 +109,7 @@ module hdd (
 	
 	// Edge detectors
 	wire f_cs_falling = f_cs_edge_detect == 2'b10;
+    wire f_cs_rising = f_cs_edge_detect == 2'b01;
 	always @(posedge clock) begin
 		f_cs_edge_detect <= {f_cs_edge_detect[0], f_cs};
 	end
@@ -146,38 +152,42 @@ module hdd (
 	// IRQ is open-collector and thus has inverted voltage logic
 	// IRQ is active low, but inverted means the below wire is active high
 	wire irq_signal = (a_ready & ~acsi_byte_available) | avr_byte_available;
-	assign f_irq = (selected && in_command_mode) ? irq_signal & f_cs: 1'b0;
+	assign f_irq = (selected && in_command_mode) ? (irq_signal & f_cs) : 1'b0;
 
 	// DRQ is also active low and thus inverted.
 	wire drq_signal = (a_ready & ~acsi_byte_available) | avr_byte_available;
-	assign f_drq = (selected && in_data_mode) ? drq_signal & f_ack: 1'b0;
+	assign f_drq = (selected && in_data_mode) ? (drq_signal & f_ack) : 1'b0;
 	
 	// Always respond to Command byte 0
 	always @(posedge clock) begin
 		if (!f_reset) begin
 			selected <= 0;
-		end else if (a_cs_rising && a_bus_dir && a_extra && !a_extra_2) begin
+		end else if (extra_data_write_condition && a_data[6]) begin
 			// Force device out of selected state if 6th bit of extra_data_write is set.
-			if (a_data[6]) begin
-				selected <= 1'b0;
-			end
+            selected <= 0;
 		end	else if (f_cs_falling && !f_rw && !f_a1) begin
 			// On receipt of a command packet, select if it's for this device or unselect if it's not.
 			if ((1 << f_data[7:5]) & acsi_ids) begin
 				selected <= 1'b1;
 			end else begin
-				selected <= 1'b0;
+				selected <= 0;
 			end
 		end
 	end
 	
 	// AVR protocol
 	assign a_data = a_bus_dir ? 8'bz : acsi_byte;
+
+    // Buffered mode: a_int will be high if buffer can hold another byte (2 total)
+    // Non-Buffered mode: a_int will be high if Atari is indicating readiness to receive a byte
+    wire buffered_int_signal = double_buffer_mode ? (~avr_byte_buf_available) : (~avr_byte_available & f_ack);
+    
+    // a_int high means AVR can write a byte
 	assign a_int = selected & (
 		a_bus_dir ?
-		// AVR ---> Atari
-		(~avr_byte_available & f_ack)
-		// AVR <--- Atari
+		// AVR ---> Atari: clear to send another byte
+		buffered_int_signal
+		// AVR <--- Atari: byte available for pickup
 		: acsi_byte_available
 	);
 	assign a_cmd = selected & is_first_command_byte;
@@ -191,6 +201,7 @@ module hdd (
 	end
 	wire a_cs_rising = a_cs_edge_detect == 2'b01;
 	wire f_ack_falling = f_ack_edge_detect == 2'b10;
+    wire f_ack_rising = f_ack_edge_detect == 2'b01;
 	always @(posedge clock) begin
 		a_cs_edge_detect <= {a_cs_edge_detect[0], a_cs};
 		f_ack_edge_detect <= {f_ack_edge_detect[0], f_ack};
@@ -200,27 +211,42 @@ module hdd (
 
 	// Bytes written by AVR for transfer to Atari
 	reg [7:0] avr_byte;
+    reg [7:0] avr_byte_buf;
 	reg avr_byte_available;
+    reg avr_byte_buf_available;
 
 	initial begin
-		avr_byte = 0;
 		avr_byte_available = 0;
+        avr_byte_buf_available = 0;
 	end
 
 	always @(posedge clock) begin
 		if (!f_reset) begin
 			avr_byte_available <= 0;
+            avr_byte_buf_available <= 0;
+		end else if (extra_data_write_condition && a_data[0]) begin
+			avr_byte_available <= 0;
+            avr_byte_buf_available <= 0;
 		end else if (!a_extra && !a_extra_2 && a_bus_dir && a_cs_rising) begin
 			// AVR writes a byte
-			avr_byte <= a_data;
-			avr_byte_available <= 1;
-		end else if (in_data_mode && f_rw && f_ack_falling) begin
-			// Atari receives a byte in data mode
-			avr_byte_available <= 0;
-		end else if (in_command_mode && f_rw && f_cs_falling) begin
+            if (avr_byte_available) begin
+                avr_byte_buf <= a_data;
+                avr_byte_buf_available <= 1;
+            end else begin
+                avr_byte <= a_data;
+                avr_byte_available <= 1;
+            end
+		end else if (in_command_mode && f_rw && f_cs_rising) begin
 			// Atari receives a byte in command mode
-			avr_byte_available <= 0;
+			avr_byte_available <= avr_byte_buf_available;
+            avr_byte <= avr_byte_buf;
+            avr_byte_buf_available <= 0;
+		end else if (in_data_mode && f_rw && f_ack_rising) begin
+			// Atari receives a byte in data mode
+			avr_byte_available <= avr_byte_buf_available;
+            avr_byte <= avr_byte_buf;
+            avr_byte_buf_available <= 0;
 		end
 	end
-	 
+     
 endmodule

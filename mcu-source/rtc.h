@@ -10,12 +10,12 @@
 #define MCP7951_WRITE 0b00010010
 
 typedef struct {
-  uint8_t second;
-  uint8_t minute;
-  uint8_t hour;
-  uint8_t day;
+  uint16_t year;
   uint8_t month;
-  uint8_t year;
+  uint8_t day;
+  uint8_t hour;
+  uint8_t minute;
+  uint8_t second;
 } datetime_t;
 
 void rtc_setup();

@@ -6,17 +6,17 @@
 // Switch to 10MHz operation
 void spi_fast() {
     // Setup SPI hardware - Master, and double clock rate, with a /4 prescaler
-    SPI0.CTRLA &= ~SPI_ENABLE_bm;
-    SPI0.CTRLA = SPI_MASTER_bm | SPI_CLK2X_bm;
-    SPI0.CTRLA |= SPI_ENABLE_bm;
+    SPI.CTRLA &= ~SPI_ENABLE_bm;
+    SPI.CTRLA = SPI_MASTER_bm | SPI_CLK2X_bm;
+    SPI.CTRLA |= SPI_ENABLE_bm;
 }
 
 // Switch to 312.5 KHz operation
 void spi_slow() {
     // Setup SPI hardware - Master, with a /64 prescaler
-    SPI0.CTRLA &= ~SPI_ENABLE_bm;
-    SPI0.CTRLA = SPI_MASTER_bm | SPI_PRESC_DIV64_gc;
-    SPI0.CTRLA |= SPI_ENABLE_bm;
+    SPI.CTRLA &= ~SPI_ENABLE_bm;
+    SPI.CTRLA = SPI_MASTER_bm | SPI_PRESC_DIV64_gc;
+    SPI.CTRLA |= SPI_ENABLE_bm;
 }
 
 void spi_setup() {
@@ -28,7 +28,7 @@ void spi_setup() {
     SPI_PORT.PINCTRLUPD = SPI_PIN_MISO;
 
     // Disable Slave Select line which, as master, we don't want
-    SPI0.CTRLB = SPI_SSD_bm;
+    SPI.CTRLB = SPI_SSD_bm;
 
     spi_fast();
 }

@@ -3,7 +3,7 @@
 #include <libc.h>
 #include <xbios.h>
 
-#include "acsi.h"
+#include "../acsi.h"
 
 /* This is a simple time and date setting program */
 
@@ -36,7 +36,7 @@ int settime_command() {
     uint8_t controller = 0;
 
     memset(cmdbuf, 0, sizeof(cmdbuf));
-    memset(dmabuf, 0, sizeof(dmabuf));
+    memset(dmabuf, 0x99, sizeof(dmabuf));
 
     cmdbuf[0] = (controller << 5) | ICD_ESCAPE_CMD;
     cmdbuf[1] = SMONSON_DISK_ACSI_CONFIG_CMD;
@@ -45,9 +45,9 @@ int settime_command() {
     memcpy(dmabuf, &datetime, sizeof(smonson_disk_datetime_t));
     
     // ACSI send 1 sector which will only end up being 16 bytes
-    acsi_command(cmdbuf, 11, dmabuf, 1, 1);
+    uint16_t acsi_result = acsi_command(cmdbuf, 11, dmabuf, 1, 1);
 
-    return 0;
+    return acsi_result;
 }
 
 int getnumber(uint8_t *string, int length) {
@@ -64,24 +64,33 @@ int getnumber(uint8_t *string, int length) {
     return acc;
 }
 
-
 int main(int argc, char **argv)
 {
     uint8_t cli_len = *(_basepage + 128);
 
     printf("Smonson Disk set clock\n");
 
-    if (cli_len != 10) {
-        printf("CLI length: %d\n", cli_len);
-        printf("Date format: YYYY-MM-DD plz\n");
+    if (cli_len != 19) {
+        printf("Date format: YYYY-MM-DD HH:MM:SSplz\n");
     } else {
         datetime.year = getnumber(_basepage + 129, 4);
         datetime.month = getnumber(_basepage + 129 + 5, 2);
         datetime.day = getnumber(_basepage + 129 + 8, 2);
 
-        printf("Going to set date: %d-%d-%d\n", datetime.year, datetime.month, datetime.day);
+        datetime.hour = getnumber(_basepage + 129 + 11, 2);
+        datetime.minute = getnumber(_basepage + 129 + 14, 2);
+        datetime.second = getnumber(_basepage + 129 + 17, 2);
 
-        xbios_supexec(settime_command);
+        printf("Going to set date: %04d-%02d-%02d %02d:%02d:%02d\n", 
+            datetime.year, datetime.month, datetime.day,
+            datetime.hour, datetime.minute, datetime.second);
+
+        int result = xbios_supexec(settime_command);
+        if (result) {
+            printf("Error setting RTC in device!\n");
+            Cconin();
+            exit(1);
+        }
     }
 
     printf("--- any key to exit ---");

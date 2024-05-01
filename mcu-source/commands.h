@@ -9,6 +9,7 @@ typedef struct {
   uint8_t acsi_id;                // ACSI device number for this unit
   uint8_t sense_key;              // returned by Request Sense
   uint8_t additional_sense_key;   //
+  uint8_t media_changed;          // True if SD card reinserted
 } logical_drive_t;
 
 // The two logical drives that are possible on this device

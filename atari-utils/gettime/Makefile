@@ -17,8 +17,8 @@ CXXFLAGS=-Os -g -Wall -fno-exceptions -fno-rtti $(STD_CFLAGS)
 LDLIBS=-lgcc $(LIBTOS)/libtos.a $(LIBGCC)
 LDFLAGS=-m68000 -nostdlib -Wl,--relocatable -L..
 
-TARGET=settime
-EXT=ttp
+TARGET=gettime
+EXT=prg
 LIBGCC:=$(shell $(CXX) $(CFLAGS) --print-libgcc-file-name)
 
 all: $(TARGET).$(EXT)

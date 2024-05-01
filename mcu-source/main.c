@@ -42,6 +42,25 @@ void clk_20MHz() {
     CLKCTRL.MCLKCTRLB = 0b00000000;    
 }
 
+// Switch internal clock to 20MHz mode
+void clk_24MHz() {
+    // Magic number to allow clock changes
+    //CCP = CCP_IOREG_gc;
+
+    // Switch to internal high-frequency oscillator
+    //CLKCTRL.MCLKCTRLA = 0b00000000; // It's already the default
+
+    // Set internal oscillator to run at 24MHz
+    CCP = CCP_IOREG_gc;
+    CLKCTRL.OSCHFCTRLA = 0b00100100;
+
+    // Magic number to allow clock changes
+    CCP = CCP_IOREG_gc;
+
+    // Prescaler disabled
+    CLKCTRL.MCLKCTRLB = 0b00000000;    
+}
+
 void set_acsi_id_mask() {
     uint8_t acsi_id_mask = 0;
     if (logical_drive[0].sdcard->usable) {
@@ -130,8 +149,6 @@ int main() {
 
     while (1) {
 
-        debug("-");
-
         uint8_t is_cmd;
         uint8_t cmd_byte;
         set_data_in();
@@ -153,11 +170,13 @@ int main() {
                 if (sdcards[0].detected && (SDCARD0_DETECT_PORT.IN & SDCARD0_DETECT_BIT)) {
                     debug("SD card 0 removed");
                     sdcard_defaults(&sdcards[0], 0);
+                    logical_drive[0].media_changed = 1;
                     set_acsi_id_mask();
                 }
                 if (sdcards[1].detected && (SDCARD1_DETECT_PORT.IN & SDCARD1_DETECT_BIT)) {
                     debug("SD card 1 removed");
                     sdcard_defaults(&sdcards[1], 1);
+                    logical_drive[1].media_changed = 1;
                     set_acsi_id_mask();
                 }
 
@@ -166,12 +185,14 @@ int main() {
                     debug("SD card 0 inserted");
                     sdcards[0].detected = 1;
                     sdcard_init(&sdcards[0]);
+                    logical_drive[0].media_changed = 1;
                     set_acsi_id_mask();
                 }
                 if (sdcards[1].detected == 0 && (SDCARD1_DETECT_PORT.IN & SDCARD1_DETECT_BIT) == 0) {
                     debug("SD card 1 inserted");
                     sdcards[1].detected = 1;
                     sdcard_init(&sdcards[1]);
+                    logical_drive[1].media_changed = 1;
                     set_acsi_id_mask();
                 }
             }
@@ -272,58 +293,66 @@ int main() {
 
             // Handle command, and do data transfers
             acsi_status_t status;
-            switch (opcode) {
+/*
+            if (selected_device->media_changed && opcode != REQUEST_SENSE_6) {
+                // If media changed, all commands response with CHECK CONDITION
+                // until cleared by a REQUEST SENSE check.
+                status = STATUS_CHECK_CONDITION;
+            } else {
+*/
+                switch (opcode) {
 
-                // Only opcodes in the range 0 - 0x1f are possible here
+                    // Only opcodes in the range 0 - 0x1f are possible here
 
-                case TEST_UNIT_READY_6:
-                    status = acsi_test_unit_ready(selected_device, 0);
-                    break;
+                    case TEST_UNIT_READY_6:
+                        status = acsi_test_unit_ready(selected_device, 0);
+                        break;
 
-                case REQUEST_SENSE_6:
-                    // First command issued by ICDTOOLS IDCHECK
-                    status = acsi_request_sense(selected_device, 0);
-                    break;
+                    case REQUEST_SENSE_6:
+                        // First command issued by ICDTOOLS IDCHECK
+                        status = acsi_request_sense(selected_device, 0);
+                        break;
 
-                case FORMAT_UNIT_6:
-                    status = acsi_format_unit(selected_device, 0);
-                    break;
+                    case FORMAT_UNIT_6:
+                        status = acsi_format_unit(selected_device, 0);
+                        break;
 
-                case READ_6:
-                    status = acsi_read(selected_device, 0);
-                    break;
+                    case READ_6:
+                        status = acsi_read(selected_device, 0);
+                        break;
 
-                case WRITE_6:
-                    status = acsi_write(selected_device, 0);
-                    break;
+                    case WRITE_6:
+                        status = acsi_write(selected_device, 0);
+                        break;
 
-                // I don't think we really need to support this
-                //case REASSIGN_BLOCKS_6:
-                //    status = acsi_reassign_blocks(selected_device, 0);
-                //    break;
+                    // I don't think we really need to support this
+                    //case REASSIGN_BLOCKS_6:
+                    //    status = acsi_reassign_blocks(selected_device, 0);
+                    //    break;
 
-                case MODE_SELECT_6:
-                    status = acsi_mode_select(selected_device, 0);
-                    break;
+                    case MODE_SELECT_6:
+                        status = acsi_mode_select(selected_device, 0);
+                        break;
 
-                case MODE_SENSE_6:
-                    status = acsi_mode_sense_6(selected_device, 0);
-                    break;
+                    case MODE_SENSE_6:
+                        status = acsi_mode_sense_6(selected_device, 0);
+                        break;
 
-                case INQUIRY_6:
-                    status = scsi_inquiry(selected_device, 0);
-                    break;
+                    case INQUIRY_6:
+                        status = scsi_inquiry(selected_device, 0);
+                        break;
 
-                // ICD custom commands
-                case ICD_ESCAPE:
-                    status = acsi_icd_escape(selected_device);
-                    break;
+                    // ICD custom commands
+                    case ICD_ESCAPE:
+                        status = acsi_icd_escape(selected_device);
+                        break;
 
-                default:
-                    selected_device->sense_key = CMD_ERR_INVALID_COMMAND;
-                    status = STATUS_CHECK_CONDITION;
-                    break;
-            }
+                    default:
+                        selected_device->sense_key = CMD_ERR_INVALID_COMMAND;
+                        status = STATUS_CHECK_CONDITION;
+                        break;
+                }
+//            }
 
             // Send status byte
             set_command_mode();
@@ -331,10 +360,10 @@ int main() {
             send_status(status);
         }
 
-        // Manually unselect device
-        extra_data_byte |= 0b01000000;
+        // Manually unselect device and clear buffers
+        extra_data_byte |= 0b01000001;
         write_extra_byte();
-        extra_data_byte &= 0b10111111;
+        extra_data_byte &= 0b10111110;
     }
     
     return 0;

@@ -1,7 +1,7 @@
 SECTIONS {
 	. = 0;
 	.text : {
-		crt0.o(.entry)
+		crt0.o (.entry)
 		/* Normal .text */
 		*(.text)
 		/* C++ static methods seem to go into their own segment */

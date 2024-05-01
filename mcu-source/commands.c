@@ -20,10 +20,22 @@ acsi_status_t acsi_test_unit_ready(logical_drive_t *device, uint8_t cmd_offset) 
 acsi_status_t acsi_request_sense(logical_drive_t *device, uint8_t cmd_offset) {
     set_data_mode();
 
-    write_byte(device->sense_key);
-    write_byte(0); // TODO
-    write_byte(0);
-    write_byte(0);
+/*
+    if (device->media_changed) {
+        device->media_changed = 0;
+
+        write_byte(6); // UNIT ATTENTION
+        write_byte(0x28); // not-ready to ready transition
+        write_byte(3); // media changed
+        write_byte(0);
+
+    } else {
+*/
+        write_byte(device->sense_key);
+        write_byte(0); // TODO
+        write_byte(0);
+        write_byte(0);
+//    }
 
     device->sense_key = DRV_ERR_NO_ERROR;
     return STATUS_OK;
@@ -39,6 +51,8 @@ acsi_status_t acsi_format_unit(logical_drive_t *device, uint8_t cmd_offset) {
 
 // Read: read a number of blocks at a given address
 #define MULTI_BLOCK_READ
+//#define SD_INTERRUPTS
+#define DOUBLE_BUFFERED_MODE
 
 // Read one block from SD card and send via ACSI
 acsi_status_t read_block(logical_drive_t *device, uint32_t addr) {
@@ -71,25 +85,52 @@ acsi_status_t read_block(logical_drive_t *device, uint32_t addr) {
 
         if (result == SD_CMD_BLOCK_READY_TOKEN) {
             // Go!
-
             set_data_out();
 
-            // Start 2-way SPI data transmission from the SD card by writing a dummy value
-            spi_start();
-            for (uint16_t byte = 0; byte < 511; byte++) {
-                uint8_t value = spi_in_nowait();
-                // Keep the SPI transfer going for the next byte
-                spi_start();
-                // Then send the value
-                write_byte_nochecks(value);
+#if defined(SD_INTERRUPTS)
+            sdcard_read_sector_to_buffer(&sd_buffer);
+            while (sd_buffer.done == 0) {
+                    debug_nocr("Waiting - count=");
+                    debug_decimal(sd_buffer.count);
+                    debug_nocr(" tx_count=");
+                    debug_decimal(sd_buffer.tx_count);
+                    debug("");
+
             }
-            // Do the 512th byte without starting a 513th.
-            write_byte_nochecks(spi_in_nowait());
-            
-            // TODO
             // Read the unused CRC field
             spi_transfer(0xff);
             spi_transfer(0xff);
+
+#else
+            // Switch to buffered SPI mode
+            //SPI.CTRLA &= ~SPI_ENABLE_bm;
+            SPI.CTRLB |= SPI_BUFEN_bm;
+            //SPI.CTRLA |= SPI_ENABLE_bm;
+
+            // Start 2-way SPI data transmission from the SD card by writing two dummy values
+            spi_start();
+            spi_start();
+
+            for (uint16_t byte = 0; byte < 510; byte++) {
+                //uint8_t value = spi_in_nowait();
+                // Then send the value
+                write_byte_nochecks(spi_in_nowait());
+                // Keep the SPI transfer going for the next byte
+                spi_start();
+            }
+            // Do the 511th and 512th byte without sending
+            write_byte_nochecks(spi_in_nowait());
+            write_byte_nochecks(spi_in_nowait());
+
+            // disable buffered mode
+            //SPI.CTRLA &= ~SPI_ENABLE_bm;
+            SPI.CTRLB &= ~SPI_BUFEN_bm;
+            //SPI.CTRLA |= SPI_ENABLE_bm;
+            
+            // Read the unused CRC field (we don't have time to calculate this)
+            spi_transfer(0xff);
+            spi_transfer(0xff);
+#endif
         }
     } else {
         debug_nocr("*** ERR invalid resp from CMD17 reading blk ");
@@ -102,14 +143,56 @@ acsi_status_t read_block(logical_drive_t *device, uint32_t addr) {
     return STATUS_OK;
 }
 
+static inline void transfer_1_byte() {
+    write_byte_nochecks(spi_in_nowait());
+    // Keep the SPI transfer going for the next byte
+    spi_start();
+}
+
+static inline void transfer_16_bytes() {
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+    transfer_1_byte();
+}
+
+static inline void transfer_256_bytes() {
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+    transfer_16_bytes();
+}
+
 acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
     sdcard_state_t *sdcard = device->sdcard;
 
     uint32_t addr;
     uint16_t transfer_length;
     acsi_status_t status = STATUS_OK;
-
-    green_led_on();
 
     // Source block address
     //addr = cmdbuf[cmd_offset + 1] & 1f;  // Most-significant byte is 5 bits for SCSI, 8 bits for ACSI
@@ -132,13 +215,13 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
     debug_hex(addr, 8);
     debug("");
 
-    if ((addr + transfer_length - 1) > sdcard->capacity) {
+    if ((addr + transfer_length - 1) >= sdcard->capacity) {
         device->sense_key = CMD_ERR_INVALID_ADDRESS;
         debug("Sector not found");
-        green_led_off();
         return STATUS_CHECK_CONDITION;
     }
 
+    green_led_on();
     set_data_out();
     set_data_mode();
 
@@ -154,6 +237,13 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
     uint8_t result = sd_response_r1();
     if (result != 0xff) {
         // Card responded
+
+#ifdef DOUBLE_BUFFERED_MODE
+        // Switch to double-buffered data mode
+        extra_data_byte |= 0b00000010;
+        write_extra_byte();
+#endif
+
         for (uint16_t i = 0; i < transfer_length; i++) {
             // Wait for block ready token.
             result = wait_spi_response(100, 0xff);
@@ -171,28 +261,93 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
                 // Go!
                 //debug("Got block ready token");
 
-                // Start 2-way SPI data transmission from the SD card by writing a dummy value.
-                // This will proceed in the background and we'll receive a byte back in the buffer.
+
+#if defined(SD_INTERRUPTS)
+                sdcard_read_sector_to_buffer(&sd_buffer);
+                while (sd_buffer.done == 0) {
+                    debug_nocr("Waiting - count=");
+                    debug_decimal(sd_buffer.count);
+                    debug_nocr(" tx_count=");
+                    debug_decimal(sd_buffer.tx_count);
+                    debug("");
+                }
+                // Read the unused CRC field
+                spi_transfer(0xff);
+                spi_transfer(0xff);
+
+#else
+                // Switch to buffered SPI mode
+                //SPI.CTRLA &= ~SPI_ENABLE_bm;
+                SPI.CTRLB |= SPI_BUFEN_bm;
+                //SPI.CTRLA |= SPI_ENABLE_bm;
+
+                // Start 2-way SPI data transmission from the SD card by writing two dummy values
+                // This prefills the 2-byte FIFO
                 spi_start();
-                for (uint16_t byte = 0; byte < 511; byte++) {
-                    // TODO could this be faster? It seems like we should avoid an idle condition entirely.
-                    // On reading the atmega324p datasheet, I don't think it's possible to run SPI continuously.
-                    uint8_t value = spi_in_nowait();
+                spi_start();
+/*
+                for (uint16_t byte = 0; byte < 510; byte++) {
+                    //uint8_t value = spi_in_nowait();
+                    // Then send the value
+                    write_byte_nochecks(spi_in_nowait());
                     // Keep the SPI transfer going for the next byte
                     spi_start();
-                    // Then send the value
-                    write_byte_nochecks(value);
-                }
-
-                // Do the 512th byte without starting a 513th.
+                }*/
+                transfer_256_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_16_bytes();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                transfer_1_byte();
+                // Do the 511th and 512th byte without sending
                 write_byte_nochecks(spi_in_nowait());
+                write_byte_nochecks(spi_in_nowait());
+
+                // disable buffered mode
+                //SPI.CTRLA &= ~SPI_ENABLE_bm;
+                SPI.CTRLB &= ~SPI_BUFEN_bm;
+                //SPI.CTRLA |= SPI_ENABLE_bm;
                 
                 // Read the unused CRC field (we don't have time to calculate this)
                 spi_transfer(0xff);
                 spi_transfer(0xff);
+#endif
                 //debug("Fin xfer from card");
             }            
         }
+
+#ifdef DOUBLE_BUFFERED_MODE
+        // Switch off double-buffered data mode and clear the buffers
+        extra_data_byte |= 0b00000001;
+        write_extra_byte();
+
+        extra_data_byte &= 0b11111100;
+        write_extra_byte();
+#endif        
 
         // Send the Stop Transfer command
         sd_command(SD_CMD_12_STOP_TRANSMISSION, 0);
@@ -250,8 +405,6 @@ acsi_status_t read_10(logical_drive_t *device, uint8_t cmd_offset) {
     uint16_t transfer_length;
     acsi_status_t status = STATUS_OK;
 
-    green_led_on();
-
     // Source block address
     addr = cmdbuf[cmd_offset + 2];
     addr <<= 8;
@@ -276,13 +429,13 @@ acsi_status_t read_10(logical_drive_t *device, uint8_t cmd_offset) {
     debug_hex(addr, 8);
     debug("");
 
-    if ((addr + transfer_length - 1) > sdcard->capacity) {
+    if ((addr + transfer_length - 1) >= sdcard->capacity) {
         device->sense_key = CMD_ERR_INVALID_ADDRESS;
         debug("Sector not found");
-        green_led_off();
         return STATUS_CHECK_CONDITION;
     }
 
+    green_led_on();
     set_data_out();
     set_data_mode();
 
@@ -409,6 +562,12 @@ acsi_status_t acsi_write(logical_drive_t *device, uint8_t cmd_offset) {
     uint32_t sd_addr = addr;
     if (sdcard->type == SD_CARD_TYPE_SDSC) {
         sd_addr *= 512;
+    }
+
+    if ((addr + transfer_length - 1) >= sdcard->capacity) {
+        device->sense_key = CMD_ERR_INVALID_ADDRESS;
+        debug("Sector not found");
+        return STATUS_CHECK_CONDITION;
     }
 
     red_led_on();
@@ -778,17 +937,19 @@ acsi_status_t mode_sense_10(logical_drive_t *device, uint8_t cmd_offset) {
 
 acsi_status_t read_capacity_10(logical_drive_t *device, uint8_t cmd_offset) {
 
+    uint32_t capacity = device->sdcard->capacity - 1;
+
     debug_nocr("READ CAPACITY (10) returning ");
-    debug_decimal(device->sdcard->capacity);
+    debug_decimal(capacity);
     debug(" blocks");
 
     set_data_mode();
     set_data_out();
 
-    write_byte(device->sdcard->capacity >> 24); // Device capacity (MSB)
-    write_byte((device->sdcard->capacity >> 16) & 0xff);
-    write_byte((device->sdcard->capacity >> 8) & 0xff);
-    write_byte(device->sdcard->capacity & 0xff);
+    write_byte(capacity >> 24); // Device capacity (MSB)
+    write_byte((capacity >> 16) & 0xff);
+    write_byte((capacity >> 8) & 0xff);
+    write_byte(capacity & 0xff);
 
     // 512 bytes
     write_byte(0x0); // Block length (MSB)
@@ -818,7 +979,7 @@ acsi_status_t smonson_vendor_specific_command_10(logical_drive_t *device, uint8_
 
         set_data_mode();
 
-        //TODO: timeout
+        // TODO: timeout
 
         for (uint8_t byte = 0; byte < 16; byte++) {
             // Get next byte from FPGA
@@ -832,20 +993,47 @@ acsi_status_t smonson_vendor_specific_command_10(logical_drive_t *device, uint8_
         }
         debug("");
 
-        uint16_t year = (datetime[0] << 8) | datetime[1];
-        uint8_t month = datetime[2];
-        uint8_t day = datetime[3];
+        // Endianness is different between the AVR128DA and 68000.
+        // Only year is affected, all others are bytes
+        uint8_t temp = datetime[0];
+        datetime[0] = datetime[1];
+        datetime[1] = temp;
 
-        debug_nocr("Read date: ");
-        debug_decimal(year);
-        debug_nocr("-");
-        debug_decimal(month);
-        debug_nocr("-");
-        debug_decimal(day);
+        rtc_set((datetime_t *)datetime);
+
+        return STATUS_OK;
+    }
+    // Set real-time clock
+    else if (subcommand == 0x81) {
+        debug("Get clock");
+
+        // Write 16 byte payload
+        uint8_t datetime[16];
+        memset(datetime, 0, 16);
+
+        rtc_get((datetime_t *)datetime);
+
+        // Endianness is different between the AVR128DA and 68000.
+        // Only year is affected, all others are bytes
+        uint8_t temp = datetime[0];
+        datetime[0] = datetime[1];
+        datetime[1] = temp;
+
+        set_data_mode();
+
+        // TODO: timeout
+
+        for (uint8_t byte = 0; byte < 16; byte++) {
+            // Send 16 bytes to FPGA
+            write_byte(datetime[byte]);
+        }
+
+        debug("Sent clock data:");
+        for (uint8_t i = 0; i < 16; i++) {
+            debug_hex(datetime[i], 2);
+            debug_nocr(" ");
+        }
         debug("");
-
-        datetime_t dt;
-        rtc_set(&dt);
 
         return STATUS_OK;
     }

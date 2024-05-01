@@ -105,7 +105,7 @@ static inline void strobe_cs() {
     A_CS_PORT.OUTCLR = A_CS_BIT;
 }
 
-// Ready a byte from the FPGA
+// Read a byte from the FPGA
 uint8_t read_byte();
 
 static inline uint8_t read_byte_nochecks() {
@@ -129,10 +129,10 @@ static inline void write_data_port(uint8_t value) {
 
 // Write a byte without requesting the next
 static inline void write_byte_nochecks(uint8_t value) {
+    write_data_port(value);
     // wait for INT high
     while (get_int() == 0)
         ;
-    write_data_port(value);
     strobe_cs();
 }
 
@@ -170,12 +170,6 @@ void green_led_on();
 void green_led_off();
 void red_led_on();
 void red_led_off();
-
-// Turn the LEDs on or under in debug mode
-void debug_green_led_on();
-void debug_red_led_on();
-void debug_green_led_off();
-void debug_red_led_off();
 
 // Enable/disable SPI pass-through on the FPGA so that the AVR can communicate directly with it
 void enable_spi();

@@ -31,7 +31,8 @@
 
 // Smonson disk ACSI sub-commands
 #define SMONSON_SETTIME 0x80
+#define SMONSON_GETTIME 0x81
 
-void acsi_command(uint8_t *cmd, uint16_t cmdlen, uint8_t *dmabuf, uint16_t dmalen, uint16_t direction);
+uint16_t acsi_command(uint8_t *cmd, uint8_t cmdlen, uint8_t *dmabuf, uint8_t dmalen, uint8_t direction);
 
 #endif
