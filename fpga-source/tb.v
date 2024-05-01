@@ -663,6 +663,17 @@ module tb();
             testdata = testdata + 1;
         end
 
+        // The last byte is received by the Atari because it's still in the FPGA's buffer.
+
+        // Atari waits for /DRQ
+        wait (~drq) #2;
+        #1;
+
+        // Atari acknowledges receipt of data byte on bus with ACK signal
+        f_ack = 0;
+        #5;
+        f_ack = 1;        
+
         // Data phase over, AVR switches back to command mode
         a_extra = 1;
         a_bus_dir = 1;
