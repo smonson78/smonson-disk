@@ -1,9 +1,5 @@
-#include <avr/io.h>
-#include <avr/pgmspace.h>
-#include <avr/interrupt.h>
-#include <avr/sleep.h>
-#include <util/delay_basic.h>
-#include <util/delay.h>
+#include "stm32f1xx.h"
+
 #include <stdint.h>
 
 #include "sdcard.h"
@@ -25,40 +21,10 @@
 
 // Switch internal clock to 20MHz mode
 void clk_20MHz() {
-    // Magic number to allow clock changes
-    //CCP = CCP_IOREG_gc;
-
-    // Switch to internal high-frequency oscillator
-    //CLKCTRL.MCLKCTRLA = 0b00000000; // It's already the default
-
-    // Set internal oscillator to run at 20MHz
-    CCP = CCP_IOREG_gc;
-    CLKCTRL.OSCHFCTRLA = 0b00100000;
-
-    // Magic number to allow clock changes
-    CCP = CCP_IOREG_gc;
-
-    // Prescaler disabled
-    CLKCTRL.MCLKCTRLB = 0b00000000;    
 }
 
 // Switch internal clock to 20MHz mode
 void clk_24MHz() {
-    // Magic number to allow clock changes
-    //CCP = CCP_IOREG_gc;
-
-    // Switch to internal high-frequency oscillator
-    //CLKCTRL.MCLKCTRLA = 0b00000000; // It's already the default
-
-    // Set internal oscillator to run at 24MHz
-    CCP = CCP_IOREG_gc;
-    CLKCTRL.OSCHFCTRLA = 0b00100100;
-
-    // Magic number to allow clock changes
-    CCP = CCP_IOREG_gc;
-
-    // Prescaler disabled
-    CLKCTRL.MCLKCTRLB = 0b00000000;    
 }
 
 void set_acsi_id_mask() {
@@ -73,6 +39,10 @@ void set_acsi_id_mask() {
     debug_hex(acsi_id_mask, 2);
     debug("");
     set_acsi_ids(acsi_id_mask);
+}
+
+void _delay_ms() {
+    // TODO
 }
 
 int main() {
@@ -165,7 +135,7 @@ int main() {
                         serial_send_progmem(PSTR("\r\n"));
                     }
                 }
-
+                /*
                 // Check if SD cards were removed
                 if (sdcards[0].detected && (SDCARD0_DETECT_PORT.IN & SDCARD0_DETECT_BIT)) {
                     debug("SD card 0 removed");
@@ -195,10 +165,12 @@ int main() {
                     logical_drive[1].media_changed = 1;
                     set_acsi_id_mask();
                 }
+                */
             }
 
             // Pick up byte from data bus and A_CMD pin
-            is_cmd = A_CMD_PORT.IN & A_CMD_BIT;
+            // TODO
+            //is_cmd = A_CMD_PORT.IN & A_CMD_BIT;
             cmd_byte = read_data_port();
 
             strobe_cs();

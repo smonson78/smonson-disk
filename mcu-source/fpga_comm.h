@@ -2,48 +2,48 @@
 #define __FPGA_COMM_H
 
 #include <stdint.h>
-#include <avr/io.h>
+#include "stdutil.h"
 
 #define DEBUG
 
 // For the AVR <==> CPLD bus
-#define BUSDIR_PORT PORTF
+#define BUSDIR_PORT 0
 #define BUSDIR_BIT _BV(4)
 
-#define DATA_PORT PORTD
+#define DATA_PORT 0
 
-#define A_INT_PORT PORTF
+#define A_INT_PORT 0
 #define A_INT_BIT _BV(2)
 
-#define A_CMD_PORT PORTF
+#define A_CMD_PORT 0
 #define A_CMD_BIT _BV(3)
 
-#define A_CS_PORT PORTF
+#define A_CS_PORT 0
 #define A_CS_BIT _BV(5)
 
-#define A_EXTRA_PORT PORTF
+#define A_EXTRA_PORT 0
 #define A_EXTRA_BIT _BV(0)
 
-#define A_EXTRA_2_PORT PORTE
+#define A_EXTRA_2_PORT 0
 #define A_EXTRA_2_BIT _BV(3)
 
-#define A_READY_PORT PORTF
+#define A_READY_PORT 0
 #define A_READY_BIT _BV(1)
 
 // Front panel LEDs
-#define RED_LED_PORT PORTC
+#define RED_LED_PORT 0
 #define RED_LED_BIT _BV(2)
-#define GREEN_LED_PORT PORTC
+#define GREEN_LED_PORT 0
 #define GREEN_LED_BIT _BV(1)
 
 // SD card-detect
-#define SDCARD0_DETECT_PORT PORTA
+#define SDCARD0_DETECT_PORT 0
 #define SDCARD0_DETECT_BIT _BV(1)
 
-#define SDCARD1_DETECT_PORT PORTA
+#define SDCARD1_DETECT_PORT 0
 #define SDCARD1_DETECT_BIT _BV(7)
 
-#define SDCARD1_WP_PORT PORTB
+#define SDCARD1_WP_PORT 0
 #define SDCARD1_WP_BIT _BV(1)
 
 // Data bus direction:
@@ -76,16 +76,17 @@ void set_data_out();
 // CLEAR - AVR is not ready
 // SET   - AVR is ready
 static inline void clear_ready() {
-    A_READY_PORT.OUTCLR = A_READY_BIT;
+    //A_READY_PORT.OUTCLR = A_READY_BIT;
 }
 
 static inline void set_ready() {
-    A_READY_PORT.OUTSET = A_READY_BIT;
+    //A_READY_PORT.OUTSET = A_READY_BIT;
 }
 
 // Get the value on the data bus
 static inline uint8_t read_data_port() {
-    return DATA_PORT.IN;
+    //return DATA_PORT.IN;
+    return 0;
 }
 
 // Get the value of the A_CMD pin which is asserted by the FPGA when presenting the first byte of a new command
@@ -94,15 +95,16 @@ uint8_t get_cmd();
 
 // Get the status of the A_INT pin which is asserted by the FPGA to indicate readiness
 static inline uint8_t get_int() {
-    return A_INT_PORT.IN & A_INT_BIT;
+    //return A_INT_PORT.IN & A_INT_BIT;
+    return 0;
 }
 
 // Raise, then lower, the A_CS signal
 //   - (when writing) - to cause the FPGA to latch the contents of the data bus
 //   - (when reading) - to cause the FPGA to see that the value on the bus has been read by the AVR
 static inline void strobe_cs() {
-    A_CS_PORT.OUTSET = A_CS_BIT;
-    A_CS_PORT.OUTCLR = A_CS_BIT;
+    //A_CS_PORT.OUTSET = A_CS_BIT;
+    //A_CS_PORT.OUTCLR = A_CS_BIT;
 }
 
 // Read a byte from the FPGA
@@ -124,7 +126,7 @@ static inline uint8_t read_byte_nochecks() {
 }
 
 static inline void write_data_port(uint8_t value) {
-    DATA_PORT.OUT = value;
+    //DATA_PORT.OUT = value;
 }
 
 // Write a byte without requesting the next

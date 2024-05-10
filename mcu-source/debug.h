@@ -1,7 +1,10 @@
 #ifndef __DEBUG_H
 #define __DEBUG_H
 
-#include <avr/pgmspace.h>
+#include <stdint.h>
+//#include <avr/pgmspace.h>
+
+#define PSTR(x) 0
 
 #define DEBUG_ENABLED
 

@@ -2,12 +2,9 @@
 #define __SDCARD_H
 
 #include <string.h>
-#include <avr/pgmspace.h>
-#include <avr/interrupt.h>
-#include <avr/sleep.h>
-#include <util/delay_basic.h>
-#include <util/delay.h>
 #include <stdint.h>
+
+#include "stdutil.h"
 
 // For SD card SPI
 #define SPI_CS0_PORT PORTA

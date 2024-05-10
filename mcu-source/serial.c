@@ -1,8 +1,3 @@
-#include <avr/io.h>
-#include <util/delay.h>
-#include <util/delay_basic.h>
-#include <avr/interrupt.h>
-#include <avr/pgmspace.h>
 
 #include "serial.h"
 
@@ -13,6 +8,7 @@ volatile uint8_t rx_ptr, rx_len, tx_ptr, tx_len, tx_idle;
 
 void serial_init()
 {
+    /*
     cli();
 
     // Empty buffers
@@ -27,7 +23,7 @@ void serial_init()
     // Enable receive and transmit
 	USART.CTRLB = USART_RXEN_bm | USART_TXEN_bm;
 
-	/* Set frame format: 8 data bits */
+	// Set frame format: 8 data bits
 	//USART.CTRLC = SERIAL_FORMAT; // N-8-1 is the default
 
     // Set pin as output
@@ -43,10 +39,12 @@ void serial_init()
     USART.CTRLA |= USART_RXCIE_bm;
 
     sei();
+    */
 }
 
 void tx_char(unsigned char data)
 {
+    /*
     cli();
 
     // FIXME: we don't have to disable ALL interrupts...
@@ -68,10 +66,12 @@ void tx_char(unsigned char data)
     // Put data into buffer
     tx_buffer[(tx_ptr + tx_len++) % TXBUFFER] = data;
     sei();
+    */
 }
 
 void serial_sendchar(unsigned char data)
 {
+    /*
     // Wait for buffer to have room. OK to spin on tx_len because it's 8 bits.
     while (1) {
         cli();
@@ -84,6 +84,7 @@ void serial_sendchar(unsigned char data)
         _delay_ms(1);
     }
 
+    */
     tx_char(data);
 }
 
@@ -97,17 +98,19 @@ void serial_send(char *s)
 
 void serial_send_progmem(const char *s)
 {
+    /*
     while (pgm_read_byte(s))
     {
         serial_sendchar(pgm_read_byte(s++));
     }
+    */
 }
 
 // Return character from RX buffer if available, otherwise return -1
 int16_t serial_receive_nowait()
 {
     int16_t data;
-    cli();
+    //cli();
 	if (rx_len == 0) {
 	    data = -1;
     } else {	    
@@ -115,7 +118,7 @@ int16_t serial_receive_nowait()
 	    rx_ptr %= RXBUFFER;
 	    rx_len--;
 	}
-	sei();
+	//sei();
 	return data;
 }
 
@@ -132,6 +135,7 @@ unsigned char serial_receive()
 // FIXME: need to set these vector names from the USART macro (for avr128da).
 
 // Receive Complete interrupt handler
+#if 0
 ISR(USART1_RXC_vect)
 {
     // Receive the data (clears the interrupt bit)
@@ -163,3 +167,4 @@ ISR(USART1_DRE_vect)
     tx_ptr %= TXBUFFER;
     tx_len--;
 }
+#endif

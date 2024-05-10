@@ -1,7 +1,9 @@
 #ifndef __RTC_H
 #define __RTC_H
 
-#include <avr/io.h>
+#include <stdint.h>
+
+#include "stdutil.h"
 
 #define CLOCK_PORT PORTE
 #define CLOCK_PIN _BV(1)
