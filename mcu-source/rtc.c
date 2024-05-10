@@ -1,23 +1,22 @@
-#include <avr/io.h>
-#include <util/delay_basic.h>
-#include <util/delay.h>
 #include <string.h>
 
 #include "spi.h"
 #include "rtc.h"
 #include "debug.h"
 
+#include "stdutil.h"
+
 void rtc_select() {
-    CLOCK_PORT.OUTCLR = CLOCK_PIN;
+    //CLOCK_PORT.OUTCLR = CLOCK_PIN;
 }
 
 void rtc_unselect() {
-    CLOCK_PORT.OUTSET = CLOCK_PIN;
+    //CLOCK_PORT.OUTSET = CLOCK_PIN;
 }
 
 void rtc_setup() {
     // Setup SS pin as output
-    CLOCK_PORT.DIRSET = CLOCK_PIN;
+    //CLOCK_PORT.DIRSET = CLOCK_PIN;
 
     rtc_unselect();
 }
@@ -64,10 +63,11 @@ void rtc_set(datetime_t *datetime) {
     // 3. Load new values
     // 4. Set the ST flag again
 
-    uint8_t rtc_buf[8];
+    uint8_t rtc_buf[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
     // Clear ST and VBAT flags
-    memset(rtc_buf, 0, 3);
+    // GCC thinks this leaves the memory uninitialised:
+    //memset(rtc_buf, 0, 3);
 
     rtc_write(1, rtc_buf, 3);
 
@@ -189,9 +189,6 @@ void rtc_get(datetime_t *dest) {
     debug_nocr(":");
 
     debug_decimal(dest->second);
-
-    //debug_nocr(".");
-    //debug_decimal(hundredths);
 
     debug("");
 

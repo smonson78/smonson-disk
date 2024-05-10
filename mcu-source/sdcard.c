@@ -1,10 +1,10 @@
-#include <avr/io.h>
-
 #include "sdcard.h"
 #include "timer0.h"
 #include "debug.h"
 #include "spi.h"
 #include "fpga_comm.h"
+
+#include "stdutil.h"
 
 // Card data for each card in the system
 // In this case, one internal card, and one front-facing card slot
@@ -16,10 +16,10 @@ sd_sector_buffer_t sd_buffer;
 void sdcard_setup() {
 
     // Card 0 CS - output
-    SPI_CS0_PORT.DIRSET = SPI_CS0_BIT;
+    //SPI_CS0_PORT.DIRSET = SPI_CS0_BIT;
 
     // Card 1 CS - output
-    SPI_CS1_PORT.DIRSET = SPI_CS1_BIT;
+    //SPI_CS1_PORT.DIRSET = SPI_CS1_BIT;
 
     sd_unselect();
 }
@@ -32,10 +32,10 @@ void sd_select(uint8_t bus_id) {
 	// Chip select ON (low). Use correct output signal for selected card, 0 or 1.
     switch(bus_id) {
         case 0:
-            SPI_CS0_PORT.OUTCLR = SPI_CS0_BIT;
+            //SPI_CS0_PORT.OUTCLR = SPI_CS0_BIT;
             break;
         case 1:
-            SPI_CS1_PORT.OUTCLR = SPI_CS1_BIT;
+            //SPI_CS1_PORT.OUTCLR = SPI_CS1_BIT;
             break;
         default:
             debug_nocr("Non-existent bus ID selected: ");
@@ -54,8 +54,8 @@ void sd_unselect() {
     spi_wait_ready();
 
 	// Turn both chip selects OFF 
-    SPI_CS0_PORT.OUTSET = SPI_CS0_BIT;
-    SPI_CS1_PORT.OUTSET = SPI_CS1_BIT;
+    //SPI_CS0_PORT.OUTSET = SPI_CS0_BIT;
+    //SPI_CS1_PORT.OUTSET = SPI_CS1_BIT;
 
     // Give SD card time to recognise CS has changed
     spi_start();
@@ -586,9 +586,9 @@ void sdcard_init(sdcard_state_t *sdcard) {
             spi_transfer(0xff);
 
             // Get CSD
-            card_version = sd_cmd_buf[0] >> 6;
+            sdcard->card_version = sd_cmd_buf[0] >> 6;
 
-            if (card_version == 0) {
+            if (sdcard->card_version == 0) {
                 // This is the silly way to do things
                 debug("SD version 1");
                 sdcard->type = SD_CARD_TYPE_SDSC;
@@ -702,25 +702,23 @@ void sdcard_init(sdcard_state_t *sdcard) {
 
 // Start an interrupt-driven SPI conversation straight into a buffer
 void sdcard_read_sector_to_buffer(sd_sector_buffer_t *buffer) {
-    cli();
+    //cli();
 
     // Switch to buffered mode
-    SPI.CTRLB |= SPI_BUFEN_bm;
+    //SPI.CTRLB |= SPI_BUFEN_bm;
 
     // Restart data transfer
-    //buffer->rp = buffer->sector_buffer;
-    //buffer->tp = buffer->sector_buffer;
-    //buffer->end = buffer->sector_buffer + BUFFER_SIZE;
     buffer->done = 0;
     buffer->count = 0;
     buffer->tx_count = 0;
     // Enable interrupt
-    SPI.INTCTRL |= SPI_RXCIE_bm | SPI_DREIE_bm;
+    //SPI.INTCTRL |= SPI_RXCIE_bm | SPI_DREIE_bm;
 
-    sei();
+    //sei();
 }
 
-// SPI activity vector
+#if 0
+// SPI activity vector - this never worked fast enough anyway
 ISR(SPI0_INT_vect)
 {
     // Receive Complete
@@ -752,3 +750,4 @@ ISR(SPI0_INT_vect)
         }
     }
 }
+#endif

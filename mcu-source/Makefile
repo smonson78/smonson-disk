@@ -25,7 +25,7 @@ LDFLAGS=-mcpu=$(MCPU) --specs=picolibc.specs -Tlinker.ld
 LDLIBS=
 
 TARGET=test
-OBJS=
+OBJS=debug.o fpga_comm.o serial.o sdcard.o spi.o rtc.o timer0.o
 
 $(TARGET).bin: $(TARGET).elf
 	$(OBJCOPY) -j .init -j .text -j .data -O binary $^ $@

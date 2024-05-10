@@ -2,7 +2,6 @@
 #define __DEBUG_H
 
 #include <stdint.h>
-//#include <avr/pgmspace.h>
 
 #define PSTR(x) 0
 

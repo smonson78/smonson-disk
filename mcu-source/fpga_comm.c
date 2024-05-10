@@ -1,10 +1,8 @@
-#include <avr/io.h>
-#include <util/delay_basic.h>
-#include <util/delay.h>
-
 #include "fpga_comm.h"
 #include "timer0.h"
 #include "debug.h"
+
+#include "stdutil.h"
 
 uint8_t extra_data_byte = EXTRA_BYTE_DEFAULT;
 
@@ -14,60 +12,60 @@ uint8_t bus_direction = 0;
 // Change direction of AVR data bus
 void set_data_in() {
     // Set data bus to input
-    DATA_PORT.DIR = 0;
+    //DATA_PORT.DIR = 0;
 
     // Set data direction pin (low = in)
-    BUSDIR_PORT.OUTCLR = BUSDIR_BIT;
+    //BUSDIR_PORT.OUTCLR = BUSDIR_BIT;
     bus_direction = 0;
 }
 
 // Change direction of AVR data bus
 void set_data_out() {
     // Set data direction pin (high = out)
-    BUSDIR_PORT.OUTSET = BUSDIR_BIT;
+    //BUSDIR_PORT.OUTSET = BUSDIR_BIT;
 
     // Set data bus to output
-    DATA_PORT.DIR = 0xff;
+    //DATA_PORT.DIR = 0xff;
 
     bus_direction = 1;
 }
 
 void setup() {
     // Bus direction selector (default: low which is FPGA -> arduino)
-    BUSDIR_PORT.DIRSET = BUSDIR_BIT;
+    //BUSDIR_PORT.DIRSET = BUSDIR_BIT;
 
     set_data_in();
 
     // FPGA interrupt - A_INT - is an input so no config needed
 
     // CS (ACSI) - out
-    A_CS_PORT.DIRSET = A_CS_BIT;
+    //A_CS_PORT.DIRSET = A_CS_BIT;
 
     // A_EXTRA, A_READY - outputs
-    A_EXTRA_PORT.DIRSET = A_EXTRA_BIT;
-    A_EXTRA_2_PORT.DIRSET = A_EXTRA_2_BIT;
-    A_READY_PORT.DIRSET = A_READY_BIT;
+    //A_EXTRA_PORT.DIRSET = A_EXTRA_BIT;
+    //A_EXTRA_2_PORT.DIRSET = A_EXTRA_2_BIT;
+    //A_READY_PORT.DIRSET = A_READY_BIT;
 
     // LEDs
-    GREEN_LED_PORT.DIRSET = GREEN_LED_BIT;
-    RED_LED_PORT.DIRSET = RED_LED_BIT;
+    //GREEN_LED_PORT.DIRSET = GREEN_LED_BIT;
+    //RED_LED_PORT.DIRSET = RED_LED_BIT;
 
     // No pullups, slew rate limit, or inversions on data pins
-    DATA_PORT.PINCONFIG = 0;
-    DATA_PORT.PINCTRLUPD = 0xff;
+    //DATA_PORT.PINCONFIG = 0;
+    //DATA_PORT.PINCTRLUPD = 0xff;
 
     // Enable pull-ups on SD card detect lines
-    SDCARD0_DETECT_PORT.PINCONFIG = PORT_PULLUPEN_bm;
-    SDCARD0_DETECT_PORT.PINCTRLUPD = SDCARD0_DETECT_BIT;
-    SDCARD1_DETECT_PORT.PINCONFIG = PORT_PULLUPEN_bm;
-    SDCARD1_DETECT_PORT.PINCTRLUPD = SDCARD1_DETECT_BIT;
-    SDCARD1_WP_PORT.PINCONFIG = PORT_PULLUPEN_bm;
-    SDCARD1_WP_PORT.PINCTRLUPD = SDCARD1_WP_BIT;
-
+    //SDCARD0_DETECT_PORT.PINCONFIG = PORT_PULLUPEN_bm;
+    //SDCARD0_DETECT_PORT.PINCTRLUPD = SDCARD0_DETECT_BIT;
+    //SDCARD1_DETECT_PORT.PINCONFIG = PORT_PULLUPEN_bm;
+    //SDCARD1_DETECT_PORT.PINCTRLUPD = SDCARD1_DETECT_BIT;
+    //SDCARD1_WP_PORT.PINCONFIG = PORT_PULLUPEN_bm;
+    //SDCARD1_WP_PORT.PINCTRLUPD = SDCARD1_WP_BIT;
 }
 
 uint8_t get_cmd() {
-    return A_CMD_PORT.IN & A_CMD_BIT;
+    //return A_CMD_PORT.IN & A_CMD_BIT;
+    return 0;
 }
 
 // TODO: 9th bit will be "first command byte" status.
@@ -110,19 +108,19 @@ void set_data_mode() {
 }
 
 void set_extra_data() {
-    A_EXTRA_PORT.OUTSET = A_EXTRA_BIT;
+    //A_EXTRA_PORT.OUTSET = A_EXTRA_BIT;
 }
 
 void clear_extra_data() {
-    A_EXTRA_PORT.OUTCLR = A_EXTRA_BIT;
+    //A_EXTRA_PORT.OUTCLR = A_EXTRA_BIT;
 }
 
 void set_extra2_data() {
-    A_EXTRA_2_PORT.OUTSET = A_EXTRA_2_BIT;
+    //A_EXTRA_2_PORT.OUTSET = A_EXTRA_2_BIT;
 }
 
 void clear_extra2_data() {
-    A_EXTRA_2_PORT.OUTCLR = A_EXTRA_2_BIT;
+    //A_EXTRA_2_PORT.OUTCLR = A_EXTRA_2_BIT;
 }
 
 // Flush the extra data byte to the FPGA to update its config.
@@ -173,19 +171,19 @@ void set_acsi_ids(uint8_t ids) {
 }
 
 void green_led_on() {
-    GREEN_LED_PORT.OUTSET = GREEN_LED_BIT;
+    //GREEN_LED_PORT.OUTSET = GREEN_LED_BIT;
 }
 
 void red_led_on() {
-    RED_LED_PORT.OUTSET = RED_LED_BIT;
+    //RED_LED_PORT.OUTSET = RED_LED_BIT;
 }
 
 void green_led_off() {
-    GREEN_LED_PORT.OUTCLR = GREEN_LED_BIT;
+    //GREEN_LED_PORT.OUTCLR = GREEN_LED_BIT;
 }
 
 void red_led_off() {
-    RED_LED_PORT.OUTCLR = RED_LED_BIT;
+    //RED_LED_PORT.OUTCLR = RED_LED_BIT;
 }
 
 // The last operation of any command response

@@ -7,10 +7,10 @@
 #include "stdutil.h"
 
 // For SD card SPI
-#define SPI_CS0_PORT PORTA
+#define SPI_CS0_PORT 0
 #define SPI_CS0_BIT _BV(2)
 
-#define SPI_CS1_PORT PORTA
+#define SPI_CS1_PORT 0
 #define SPI_CS1_BIT _BV(3)
 
 typedef enum {
@@ -127,11 +127,6 @@ typedef struct {
 extern sd_sector_buffer_t sd_buffer;
 
 extern sdcard_state_t sdcards[2];
-
-extern uint8_t sdcard_initialised;
-uint8_t card_version;
-extern uint8_t sdcard_extended_capacity;
-extern uint32_t sdcard_capacity;
 
 void sdcard_setup();
 void sdcard_init();

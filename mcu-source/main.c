@@ -19,12 +19,55 @@
  * License: GPL 3 or later https://www.gnu.org/licenses/gpl-3.0.en.html unless otherwise noted.
  */
 
-// Switch internal clock to 20MHz mode
-void clk_20MHz() {
-}
 
-// Switch internal clock to 20MHz mode
-void clk_24MHz() {
+// Use the High-Speed Internal clock to run at 48MHz
+void clk_48MHz() {
+
+    // Enable 2 wait-states for flash since we are going to pump the clock up.
+    // 2 wait states are required for clock speeds 48-72MHz
+    FLASH->ACR |= FLASH_ACR_LATENCY_2;
+
+    // Enable the HSI clock oscillator
+    RCC->CR |= RCC_CR_HSION;
+    // Wait for HSI to become stable
+    while (!(RCC->CR & RCC_CR_HSIRDY)) {
+    }
+
+    // Switch core clock source to HSI
+    RCC->CFGR |= RCC_CFGR_SW_HSI;
+    // Wait for switchover to finish
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_HSI) {
+    }
+
+    // APB clock (low-speed peripheral) to be HCLK / 2, i.e. 24MHz
+    RCC->CFGR &= RCC_CFGR_PPRE1;
+    RCC->CFGR |= RCC_CFGR_PPRE1_DIV2;
+
+    // Now turn PLL off so that it can be changed
+    RCC->CR &= ~RCC_CR_PLLON;
+
+    // Wait for PLL to stop
+    while (RCC->CR & RCC_CR_PLLRDY) {
+    }
+
+    // PLL source: half HSI
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC;
+
+    // PLL multiplier x12
+    RCC->CFGR &= ~RCC_CFGR_PLLMULL;
+    RCC->CFGR |= RCC_CFGR_PLLMULL12;
+
+    // Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    // Wait for PLL to become ready
+    while (!(RCC->CR & RCC_CR_PLLRDY)) {
+    }
+
+    // Switch core clock source to PLL 
+    RCC->CFGR |= RCC_CFGR_SW_PLL;
+    // Wait for switchover to finish
+    while (!(RCC->CFGR & RCC_CFGR_SWS_PLL)) {
+    }
 }
 
 void set_acsi_id_mask() {
@@ -41,40 +84,37 @@ void set_acsi_id_mask() {
     set_acsi_ids(acsi_id_mask);
 }
 
-void _delay_ms() {
-    // TODO
-}
-
 int main() {
     // Setup device pins
     setup();
 
-    // Speed up the clock to 20MHz
-    clk_20MHz();
+    // Speed up the clock
+    clk_48MHz();
 
     serial_init();
 
     // Debug during startup
     debug_level = 5;
 
-    init_clock();
+    //init_clock();
         
-    debug("\n\r\n\r\n\r-- Startup");
+    //debug("\n\r\n\r\n\r-- Startup");
 
     // Setup SPI pins
-    spi_setup();
-    sdcard_setup();
-    rtc_setup();
+    //spi_setup();
+    //sdcard_setup();
+    //rtc_setup();
 
     // Settle down for a bit
     _delay_ms(10);
 
-    datetime_t datetime;
-    rtc_get(&datetime);
+    //datetime_t datetime;
+    //rtc_get(&datetime);
 
     // TODO: Print datetime for console here instead of in rtc_read
 
     // Flash both lights to indicate startup
+    /*
     for (uint8_t i = 0; i < 2; i++) {
         red_led_on();
         green_led_on();
@@ -82,7 +122,7 @@ int main() {
         red_led_off();
         green_led_off();
         _delay_ms(250);
-    }
+    }*/
 
     // Reset FPGA registers to default
     // This sets command mode, and ACSI bus direction IN
@@ -126,6 +166,7 @@ int main() {
             // Wait for A_INT
             while (get_int() == 0) {
                 // Check if debug level was changed by typing 0-9 on the serial port
+                /*
                 int16_t serial_in = serial_receive_nowait();
                 if (serial_in >= 0) {
                     if (serial_in >= '0' && serial_in <= '9') {
@@ -135,6 +176,8 @@ int main() {
                         serial_send_progmem(PSTR("\r\n"));
                     }
                 }
+                */
+
                 /*
                 // Check if SD cards were removed
                 if (sdcards[0].detected && (SDCARD0_DETECT_PORT.IN & SDCARD0_DETECT_BIT)) {

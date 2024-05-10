@@ -5,7 +5,7 @@
 
 #include "stdutil.h"
 
-#define CLOCK_PORT PORTE
+#define CLOCK_PORT 0
 #define CLOCK_PIN _BV(1)
 
 #define MCP7951_READ 0b00010011
