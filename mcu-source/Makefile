@@ -5,6 +5,8 @@ MCPU=cortex-m0plus
 ARCH=armv6-m
 
 FCLK=24000000
+PCLK1=24000000
+PCLK2=24000000
 FLASH_ADDR=0x8000000
 
 # Device configuration
@@ -20,12 +22,13 @@ OBJCOPY=arm-none-eabi-objcopy
 STFLASH=st-flash
 
 INCLUDE_PATHS=-I$(CUBE)/Drivers/CMSIS/Device/ST/$(FAMILY)/Include -I$(CUBE)/Drivers/CMSIS/Include
-CFLAGS=-g -Wall -O3 -mcpu=$(MCPU) -mthumb --specs=picolibc.specs -DF_CPU=$(FCLK) -D$(DEVICE) $(INCLUDE_PATHS)
+CFLAGS=-g -Wall -O3 -mcpu=$(MCPU) -mthumb --specs=picolibc.specs -DF_CLK=$(FCLK) \
+	-DF_PCLK1=$(PCLK1) -DF_PCLK2=$(PCLK2) -D$(DEVICE) $(INCLUDE_PATHS)
 LDFLAGS=-mcpu=$(MCPU) --specs=picolibc.specs -Tlinker.ld
 LDLIBS=
 
 TARGET=test
-OBJS=debug.o fpga_comm.o serial.o sdcard.o spi.o rtc.o timer0.o
+OBJS=debug.o fpga_comm.o serial.o sdcard.o spi.o rtc.o timer0.o int.o
 
 $(TARGET).bin: $(TARGET).elf
 	$(OBJCOPY) -j .init -j .text -j .data -O binary $^ $@

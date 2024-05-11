@@ -40,17 +40,25 @@ void clk_48MHz() {
     }
 
     // APB clock (low-speed peripheral) to be HCLK / 2, i.e. 24MHz
+    // AKA APB1
     RCC->CFGR &= RCC_CFGR_PPRE1;
     RCC->CFGR |= RCC_CFGR_PPRE1_DIV2;
 
-    // Now turn PLL off so that it can be changed
-    RCC->CR &= ~RCC_CR_PLLON;
+    // APB2 clock (high-speed peripheral) to be HCLK / 2, i.e. 24MHz
+    // AKA PCLK2
+    RCC->CFGR &= RCC_CFGR_PPRE2;
+    RCC->CFGR |= RCC_CFGR_PPRE2_DIV2;
 
-    // Wait for PLL to stop
-    while (RCC->CR & RCC_CR_PLLRDY) {
+    // Now turn PLL off so that it can be changed
+    if (RCC->CR & RCC_CR_PLLRDY) {
+        RCC->CR &= ~RCC_CR_PLLON;
+
+        // Wait for PLL to stop
+        while (RCC->CR & RCC_CR_PLLRDY) {
+        }
     }
 
-    // PLL source: half HSI
+    // PLL source: half HSI (4MHz)
     RCC->CFGR &= ~RCC_CFGR_PLLSRC;
 
     // PLL multiplier x12

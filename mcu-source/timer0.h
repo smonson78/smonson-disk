@@ -18,7 +18,7 @@
 #define TIMER_PRESCALER_VALUE TCA_SINGLE_CLKSEL_DIV64_gc
 #endif
 
-#define CLOCK_RATE (F_CPU / TIMER_PRESCALER / TIMER_COUNT)
+#define CLOCK_RATE (F_CLK / TIMER_PRESCALER / TIMER_COUNT)
 
 extern volatile uint32_t ticks;
 
