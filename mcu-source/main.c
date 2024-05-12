@@ -99,6 +99,18 @@ int main() {
     // Speed up the clock
     clk_48MHz();
 
+    // Turn on the GPIO peripheral clocks for all ports
+    RCC->APB2ENR |= RCC_APB2ENR_IOPAEN | RCC_APB2ENR_IOPBEN | RCC_APB2ENR_IOPCEN 
+	    | RCC_APB2ENR_IOPDEN | RCC_APB2ENR_IOPEEN;
+
+    // Enable the peripheral clock to USART1
+    RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
+    // Enable the peripheral clock to the alternate function remapper
+    RCC->APB2ENR |= RCC_APB2ENR_AFIOEN;
+    // Enable the peripheral clock to SPI1
+    RCC->APB2ENR |= RCC_APB2ENR_SPI1EN;
+    
+
     serial_init();
 
     // Debug during startup

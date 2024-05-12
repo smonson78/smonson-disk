@@ -1,8 +1,10 @@
+#include "stm32f1xx.h"
+
 #include "sdcard.h"
 #include "timer0.h"
 #include "debug.h"
 #include "spi.h"
-#include "fpga_comm.h"
+//#include "fpga_comm.h"
 
 #include "stdutil.h"
 
@@ -16,23 +18,37 @@ sd_sector_buffer_t sd_buffer;
 void sdcard_setup() {
 
     // Card 0 CS - output
-    //SPI_CS0_PORT.DIRSET = SPI_CS0_BIT;
+    // NSS - PA4
+    // Put pin in general purpose open drain mode
+    GPIOA->CRL &= ~GPIO_CRL_CNF4;
+    GPIOA->CRL &= ~GPIO_CRL_MODE4;
+    GPIOA->CRL |= GPIO_CRL_CNF4_0;
+
+    // Set the output mode to max. 2MHz
+    GPIOA->CRL |= GPIO_CRL_MODE4_1;
+
+    // Enable pull-up resistor
+    GPIOA->ODR |= GPIO_ODR_ODR4;
+
+    // SS high
+    GPIOA->BSRR = GPIO_BSRR_BS4;
 
     // Card 1 CS - output
     //SPI_CS1_PORT.DIRSET = SPI_CS1_BIT;
 
-    sd_unselect();
+    //sd_unselect();
 }
 
 void sd_select(uint8_t bus_id) {
     // Give SD card time to finish whatever it's doing
     spi_start();
     spi_wait_ready();
-
+    
 	// Chip select ON (low). Use correct output signal for selected card, 0 or 1.
     switch(bus_id) {
         case 0:
-            //SPI_CS0_PORT.OUTCLR = SPI_CS0_BIT;
+            debug("Selecting card");
+            GPIOA->BSRR = GPIO_BSRR_BR4;
             break;
         case 1:
             //SPI_CS1_PORT.OUTCLR = SPI_CS1_BIT;
@@ -56,6 +72,9 @@ void sd_unselect() {
 	// Turn both chip selects OFF 
     //SPI_CS0_PORT.OUTSET = SPI_CS0_BIT;
     //SPI_CS1_PORT.OUTSET = SPI_CS1_BIT;
+    GPIOA->BSRR = GPIO_BSRR_BS4;
+
+    debug("Unselecting card");
 
     // Give SD card time to recognise CS has changed
     spi_start();
@@ -87,11 +106,10 @@ void sd_command(uint8_t cmd, uint32_t arg)
 {
     uint8_t buf[5];
 
-    if (debug_level > 5) {
-        debug_nocr("SD CMD");
-        debug_decimal(cmd);
-        debug("");
-    }
+    debug_nocr("SD CMD");
+    debug_decimal(cmd);
+    debug("");
+
     buf[0] = cmd | SD_CMD_TRANSMISSION_BIT;
     buf[1] = (uint8_t)(arg >> 24);
     buf[2] = (uint8_t)(arg >> 16);
@@ -670,27 +688,25 @@ void sdcard_init(sdcard_state_t *sdcard) {
 
     sd_unselect();
 
-    if (debug_level > 0) {
-        debug_nocr("=== SD Card ");
-        debug_decimal(sdcard->bus_id);
-        debug("");
-        debug_nocr("- Type: ");
-        if (sdcard->type == SD_CARD_TYPE_SDSC) {
-            debug("SDSC");
-        } else if (sdcard->type == SD_CARD_TYPE_SDHC) {
-            debug("SDHC");
-        } else if (sdcard->type == SD_CARD_TYPE_SDXC) {
-            debug("SDXC");
-        } else {
-            debug("SDUC");
-        }
-
-        debug_nocr("- Capacity: ");
-        debug_decimal(sdcard->capacity / 2);
-        debug("KiB");
-
-        debug("===");
+    debug_nocr("=== SD Card ");
+    debug_decimal(sdcard->bus_id);
+    debug("");
+    debug_nocr("- Type: ");
+    if (sdcard->type == SD_CARD_TYPE_SDSC) {
+        debug("SDSC");
+    } else if (sdcard->type == SD_CARD_TYPE_SDHC) {
+        debug("SDHC");
+    } else if (sdcard->type == SD_CARD_TYPE_SDXC) {
+        debug("SDXC");
+    } else {
+        debug("SDUC");
     }
+
+    debug_nocr("- Capacity: ");
+    debug_decimal(sdcard->capacity / 2);
+    debug("KiB");
+
+    debug("===");
 
     debug("SD card finished init");
     sdcard->initialised = 1;

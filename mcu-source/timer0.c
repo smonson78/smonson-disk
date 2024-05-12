@@ -1,56 +1,47 @@
 #include <stdint.h>
 
+#include "stm32f1xx.h"
 #include "timer0.h"
 
 // clock
 volatile uint32_t ticks = 0;
 
-#if 0
-// Overflow interrupt vector
-ISR(OVF_VECTOR_NAME)
-{
+// Overflow interrupt vector - don't need this for Arm Cortex
+__attribute__((interrupt ("isr")))
+void systick_vector() {
 	ticks++;
-
-	// Acknowledge the interrupt (required)
-	TIMER.SINGLE.INTFLAGS = TCA_SINGLE_OVF_bm;
 }
-#endif
+
 /* Maintain a timer */
 void init_clock()
 {
 	// Frequency of clock is F_CPU / prescaler / count
 	//TIMER.SINGLE.PER = TIMER_COUNT - 1;
 
+	portNVIC_SYSTICK_CTRL_REG |= (1 << 2); // /1 clock source
+
+	portNVIC_SYSTICK_LOAD_REG = TIMER_COUNT - 1;
+
 	// Get timer into "normal" mode
 	// No need to change anything, it's the default
 
 	// Select clock prescaler
 	//TIMER.SINGLE.CTRLA = TIMER_PRESCALER_VALUE;
+
+	// Enable systick interrupt
+	portNVIC_SYSTICK_CTRL_REG |= portNVIC_SYSTICK_INT_BIT;
 }
 
 void start_clock()
 {
-	//cli();
-	// Start clock from 0
-	ticks = 0;
-
-	// Enable timer
-	//TIMER.SINGLE.CTRLA |= TCA_SINGLE_ENABLE_bm;
-
-	// Enable overflow interrupt
-	//TIMER.SINGLE.INTCTRL = TCA_SINGLE_OVF_bm;
-	//sei();
+	clear_clock();
+	portNVIC_SYSTICK_CTRL_REG |= portNVIC_SYSTICK_ENABLE_BIT;
 }
 
 void clear_clock() {
-	//cli();
 	ticks = 0;
-	//sei();
 }
 
 uint32_t get_clock() {
-	//cli();
-	uint32_t clock = ticks;
-	//sei();
-	return clock;
+	return ticks;
 }

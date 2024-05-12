@@ -3,20 +3,23 @@
 
 #include <stdint.h>
 
-// Which of the 7 clock units we will use. There are 2x "A", 4x "B", 1x "D" type. Type A supports /64 prescaler.
-#define TIMER TCA0
-#define OVF_VECTOR_NAME TCA0_OVF_vect
+// Where are these normally defined? I copied these from the Cube example files
+#define portNVIC_SYSTICK_CTRL_REG                       ( * ( ( volatile uint32_t * ) 0xe000e010 ) )
+#define portNVIC_SYSTICK_LOAD_REG                       ( * ( ( volatile uint32_t * ) 0xe000e014 ) )
+#define portNVIC_SYSTICK_CURRENT_VALUE_REG      ( * ( ( volatile uint32_t * ) 0xe000e018 ) )
+#define portNVIC_SYSPRI2_REG                            ( * ( ( volatile uint32_t * ) 0xe000ed20 ) )
+/* ...then bits in the registers. */
+#define portNVIC_SYSTICK_INT_BIT                        ( 1UL << 1UL )
+#define portNVIC_SYSTICK_ENABLE_BIT                     ( 1UL << 0UL )
+#define portNVIC_SYSTICK_COUNT_FLAG_BIT         ( 1UL << 16UL )
+#define portNVIC_PENDSVCLEAR_BIT                        ( 1UL << 27UL )
+#define portNVIC_PEND_SYSTICK_CLEAR_BIT         ( 1UL << 25UL )
 
-// Select prescale value and OCR0A (total count) value
-#define TIMER_PRESCALER 64
+// Select prescale value
+#define TIMER_PRESCALER 1
 
-// Exactly 100Hz
-#define TIMER_COUNT 3125
-
-// Add other values here if needed
-#if TIMER_PRESCALER==64
-#define TIMER_PRESCALER_VALUE TCA_SINGLE_CLKSEL_DIV64_gc
-#endif
+// Exactly 1000Hz
+#define TIMER_COUNT 48000
 
 #define CLOCK_RATE (F_CLK / TIMER_PRESCALER / TIMER_COUNT)
 
@@ -26,5 +29,8 @@ void init_clock();
 void start_clock();
 void clear_clock();
 uint32_t get_clock();
+
+// ISR
+void systick_vector();
 
 #endif

@@ -3,9 +3,33 @@
 #include "int.h"
 
 extern void usart1_vector(void) __attribute__ ((weak));
+extern void systick_vector(void) __attribute__ ((weak));
 
-// STM32F103 non-core interrupt vectors table to go on the end of the libc one
+extern void _start(void);
+extern uint8_t __stack[];
 
+// Core vectors
+__attribute((section (".data.init.enter")))
+void (* const __interrupt_vector[16])() = {
+  (void (*const)())__stack,
+  _start,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  systick_vector,
+};
+
+// STM32F103 non-core vector table to go on the end of the core one
 __attribute((section (".init")))
 void (* const interrupts[60])() = {
   0,

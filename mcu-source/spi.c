@@ -1,17 +1,31 @@
 #include <stdint.h>
+#include "stm32f1xx.h"
 
 #include "spi.h"
 
-// Switch to 10MHz operation
+// Setup SPI hardware in fastest configuration
 void spi_fast() {
-    // Setup SPI hardware - Master, and double clock rate, with a /4 prescaler
-    //SPI.CTRLA &= ~SPI_ENABLE_bm;
-    //SPI.CTRLA = SPI_MASTER_bm | SPI_CLK2X_bm;
-    //SPI.CTRLA |= SPI_ENABLE_bm;
+
+    // Disable SPI
+    SPI1->CR1 |= SPI_CR1_SPE;
+
+    // Switch to Master
+    SPI1->CR1 |= SPI_CR1_MSTR;
+
+    // Baud rate control: PCLK / 2 (12MHz) - BR = 0b000
+    SPI1->CR1 &= ~SPI_CR1_BR;
+    //SPI1->CR1 |= SPI_CR1_BR_1; // clock /8
+
+    // Software NSS control - with SS high
+    SPI1->CR1 |= SPI_CR1_SSM | SPI_CR1_SSI;
+
+    // Enable SPI
+    SPI1->CR1 |= SPI_CR1_SPE;
 }
 
 // Switch to 312.5 KHz operation
 void spi_slow() {
+    // TODO
     // Setup SPI hardware - Master, with a /64 prescaler
     //SPI.CTRLA &= ~SPI_ENABLE_bm;
     //SPI.CTRLA = SPI_MASTER_bm | SPI_PRESC_DIV64_gc;
@@ -20,14 +34,31 @@ void spi_slow() {
 
 void spi_setup() {
    	// SPI output pins
-    //SPI_PORT.DIRSET = SPI_PIN_MOSI | SPI_PIN_CLK;
 
-    // enable pull up resistor in MISO
-    //SPI_PORT.PINCONFIG = PORT_PULLUPEN_bm;
-    //SPI_PORT.PINCTRLUPD = SPI_PIN_MISO;
+    // MOSI - A7
+    GPIOA->CRL &= ~GPIO_CRL_CNF7;
+    GPIOA->CRL &= ~GPIO_CRL_MODE7;
+    // Put pin in alternate function push-pull mode
+    GPIOA->CRL |= GPIO_CRL_CNF7_1;
+    // Set the output mode to max. 50MHz
+    GPIOA->CRL |= GPIO_CRL_MODE7_1 | GPIO_CRL_MODE7_0;
 
-    // Disable Slave Select line which, as master, we don't want
-    //SPI.CTRLB = SPI_SSD_bm;
+    // MISO - A6
+    GPIOA->CRL &= ~GPIO_CRL_CNF6;
+    GPIOA->CRL &= ~GPIO_CRL_MODE6;
+    // Put pin in input mode with pullup/down
+    GPIOA->CRL |= GPIO_CRL_CNF6_1;
+    // Set input mode
+    // enable pull up resistor
+    GPIOA->ODR |= GPIO_ODR_ODR6;
+
+    // SCK - A5
+    GPIOA->CRL &= ~GPIO_CRL_CNF5;
+    GPIOA->CRL &= ~GPIO_CRL_MODE5;
+    // Put pin in alternate function push-pull mode
+    GPIOA->CRL |= GPIO_CRL_CNF5_1;
+    // Set the output mode to max. 50MHz
+    GPIOA->CRL |= GPIO_CRL_MODE5_1 | GPIO_CRL_MODE5_0;
 
     spi_fast();
 }
