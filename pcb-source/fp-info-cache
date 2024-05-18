@@ -1,4 +1,4 @@
-22567708747213461
+22569423400724134
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -92109,6 +92109,13 @@ simon
 C_rectangle_5mm
 
 
+0
+2
+2
+simon
+Crystal_SMD_ECX_31B-2Pin_3.2x1.5mm
+SMD Crystal FC-135 https://support.epson.biz/td/api/doc_check.php?dl=brief_FC-135R_en.pdf
+SMD SMT Crystal
 0
 2
 2
