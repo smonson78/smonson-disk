@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "stm32f1xx.h"
+#include "stm32c0xx.h"
 
 #include "spi.h"
 

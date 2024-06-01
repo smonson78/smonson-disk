@@ -9,6 +9,7 @@ uint8_t extra_data_byte = EXTRA_BYTE_DEFAULT;
 // 0 = in
 uint8_t bus_direction = 0;
 
+#if 0
 // Change direction of AVR data bus
 void set_data_in() {
     // Set data bus to input
@@ -29,12 +30,13 @@ void set_data_out() {
 
     bus_direction = 1;
 }
+#endif
 
 void setup() {
     // Bus direction selector (default: low which is FPGA -> arduino)
     //BUSDIR_PORT.DIRSET = BUSDIR_BIT;
 
-    set_data_in();
+    //set_data_in();
 
     // FPGA interrupt - A_INT - is an input so no config needed
 
@@ -47,8 +49,25 @@ void setup() {
     //A_READY_PORT.DIRSET = A_READY_BIT;
 
     // LEDs
-    //GREEN_LED_PORT.DIRSET = GREEN_LED_BIT;
-    //RED_LED_PORT.DIRSET = RED_LED_BIT;
+    // Put pin 13 (red LED) in general purpose push-pull mode
+    RED_LED_PORT->MODER &= MODE_MASK(RED_LED_BIT);
+    RED_LED_PORT->MODER |= MODE_OUTPUT(RED_LED_BIT);
+
+    // Pin speed is by default, very slow (0b00)
+    RED_LED_PORT->OSPEEDR &= OSPEED_MASK(RED_LED_BIT);
+    RED_LED_PORT->OSPEEDR |= OSPEED_VFAST(RED_LED_BIT);
+
+    // Same with pin 14 (green LED)
+    GREEN_LED_PORT->MODER &= MODE_MASK(GREEN_LED_BIT);
+    GREEN_LED_PORT->MODER |= MODE_OUTPUT(GREEN_LED_BIT);
+
+    // Pin speed is by default, very slow (0b00)
+    GREEN_LED_PORT->OSPEEDR &= OSPEED_MASK(GREEN_LED_BIT);
+    GREEN_LED_PORT->OSPEEDR |= OSPEED_VFAST(GREEN_LED_BIT);
+
+    // Switch off both LED pins
+    GREEN_LED_PORT->BSRR = BSR_LOW(GREEN_LED_BIT);    
+    RED_LED_PORT->BSRR = BSR_LOW(RED_LED_BIT);
 
     // No pullups, slew rate limit, or inversions on data pins
     //DATA_PORT.PINCONFIG = 0;
@@ -63,6 +82,7 @@ void setup() {
     //SDCARD1_WP_PORT.PINCTRLUPD = SDCARD1_WP_BIT;
 }
 
+#if 0
 uint8_t get_cmd() {
     //return A_CMD_PORT.IN & A_CMD_BIT;
     return 0;
@@ -169,23 +189,25 @@ void set_acsi_ids(uint8_t ids) {
         set_data_in();
     }
 }
+#endif
 
 void green_led_on() {
-    //GREEN_LED_PORT.OUTSET = GREEN_LED_BIT;
+    GREEN_LED_PORT->BSRR = BSR_HIGH(GREEN_LED_BIT);
 }
 
 void red_led_on() {
-    //RED_LED_PORT.OUTSET = RED_LED_BIT;
+    RED_LED_PORT->BSRR = BSR_HIGH(RED_LED_BIT);
 }
 
 void green_led_off() {
-    //GREEN_LED_PORT.OUTCLR = GREEN_LED_BIT;
+    GREEN_LED_PORT->BSRR = BSR_LOW(GREEN_LED_BIT);
 }
 
 void red_led_off() {
-    //RED_LED_PORT.OUTCLR = RED_LED_BIT;
+    RED_LED_PORT->BSRR = BSR_LOW(RED_LED_BIT);
 }
 
+#if 0
 // The last operation of any command response
 void send_status(uint8_t status) {
     debug_nocr("STATUS: ");
@@ -202,3 +224,4 @@ void send_status(uint8_t status) {
     // Go back to command/read
     set_data_in();
 }
+#endif

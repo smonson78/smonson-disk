@@ -3,7 +3,13 @@
 
 #include <stdint.h>
 
-#include "stm32f1xx.h"
+#include "stm32c0xx.h"
+
+#define TX_PORT GPIOB
+#define TX_BIT 6
+#define RX_PORT GPIOB
+#define RX_BIT 7
+
 
 // Serial buffer FIFO sizes
 #define RXBUFFER 128

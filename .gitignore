@@ -5,7 +5,7 @@
 .vscode
 mcu-source/atpack
 mcu-source/hdd.elf
-mcu-source/hdd.hex
+mcu-source/hdd.bin
 fpga-source/output_files/
 fpga-source/db/
 fpga-source/incremental_db
@@ -14,5 +14,6 @@ fpga-source/tb
 fpga-source/hdd.qws
 fpga-source/hdd.cdf
 pcb-source/AtariHDisk4-backups
+pcb-source/fp-info-cache
 atari-utils/*/*.prg
 atari-utils/*/*.ttp

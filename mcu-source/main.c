@@ -1,4 +1,4 @@
-#include "stm32f1xx.h"
+#include "stm32c0xx.h"
 
 #include <stdint.h>
 
@@ -19,10 +19,18 @@
  * License: GPL 3 or later https://www.gnu.org/licenses/gpl-3.0.en.html unless otherwise noted.
  */
 
+// Quick and dirty delay
+static void delay (unsigned int time) {
+    for (unsigned int i = 0; i < time; i++) {
+        for (volatile unsigned int j = 0; j < 1600; j++) {
+            // This inner loop is about 1ms at 48MHz
+        }
+    }
+}
 
 // Use the High-Speed Internal clock to run at 48MHz
 void clk_48MHz() {
-
+/*
     // Enable 2 wait-states for flash since we are going to pump the clock up.
     // 2 wait states are required for clock speeds 48-72MHz
     FLASH->ACR |= FLASH_ACR_LATENCY_2;
@@ -76,9 +84,11 @@ void clk_48MHz() {
     // Wait for switchover to finish
     while (!(RCC->CFGR & RCC_CFGR_SWS_PLL)) {
     }
+    */
 }
 
 void set_acsi_id_mask() {
+    /*
     uint8_t acsi_id_mask = 0;
     if (logical_drive[0].sdcard->usable) {
         acsi_id_mask |= (1 << logical_drive[0].acsi_id);
@@ -90,6 +100,7 @@ void set_acsi_id_mask() {
     debug_hex(acsi_id_mask, 2);
     debug("");
     set_acsi_ids(acsi_id_mask);
+    */
 }
 
 int main() {
@@ -97,11 +108,14 @@ int main() {
     setup();
 
     // Speed up the clock
-    clk_48MHz();
+    //clk_48MHz();
 
     // Turn on the GPIO peripheral clocks for all ports
-    RCC->APB2ENR |= RCC_APB2ENR_IOPAEN | RCC_APB2ENR_IOPBEN | RCC_APB2ENR_IOPCEN 
-	    | RCC_APB2ENR_IOPDEN | RCC_APB2ENR_IOPEEN;
+    //RCC->APB2ENR |= RCC_APB2ENR_IOPAEN | RCC_APB2ENR_IOPBEN | RCC_APB2ENR_IOPCEN 
+	//    | RCC_APB2ENR_IOPDEN | RCC_APB2ENR_IOPEEN;
+    RCC->IOPENR |= RCC_IOPENR_GPIOAEN | RCC_IOPENR_GPIOBEN | RCC_IOPENR_GPIOCEN | RCC_IOPENR_GPIODEN;
+
+/*
 
     // Enable the peripheral clock to USART1
     RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
@@ -109,8 +123,23 @@ int main() {
     RCC->APB2ENR |= RCC_APB2ENR_AFIOEN;
     // Enable the peripheral clock to SPI1
     RCC->APB2ENR |= RCC_APB2ENR_SPI1EN;
-    
+  */  
 
+
+    while (1) {
+        // Reset the state of pin 13 to output low (on)
+        green_led_on();
+        red_led_off();
+
+        delay(500);
+
+        green_led_off();
+        red_led_on();
+        delay(500);
+
+    }
+
+#if 0
     serial_init();
 
     // Debug during startup
@@ -400,6 +429,7 @@ int main() {
         write_extra_byte();
         extra_data_byte &= 0b10111110;
     }
-    
+#endif
+
     return 0;
 }

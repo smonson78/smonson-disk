@@ -29,10 +29,10 @@ void (* const __interrupt_vector[16])() = {
   systick_vector,
 };
 
-// STM32F103 non-core vector table to go on the end of the core one
+// STM32C031 non-core vector table to go on the end of the core one
 __attribute((section (".init")))
 void (* const interrupts[60])() = {
-  0,
+  0, // 0
   0,
   0,
   0,
@@ -59,20 +59,9 @@ void (* const interrupts[60])() = {
   0,
   0,
   0,
-  0,
-  0,
-  0,
-  0, // 30
-  0,
-  0,
-  0,
-  0,
-  0,
-  0,
   usart1_vector,
   0,
   0,
-  0, // 40
-  0,
+  0, // 30
   0,
 };

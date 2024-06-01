@@ -1,5 +1,6 @@
-#include "stm32f1xx.h"
+#include "stm32c0xx.h"
 
+#include "stdutil.h"
 #include "serial.h"
 #include "int.h"
 
@@ -9,11 +10,11 @@ volatile uint8_t tx_buffer[TXBUFFER];
 volatile uint8_t rx_ptr, rx_len, tx_ptr, tx_len, tx_idle;
 
 void serial_cli() {
-    NVIC->ICER[1] = 1 << 5;
+    NVIC->ICER[0] = USART1_VECTOR_NUM;
 }
 
 void serial_sei() {
-    NVIC->ISER[1] = 1 << 5;
+    NVIC->ISER[0] = USART1_VECTOR_NUM;
 }
 
 void serial_init()
@@ -48,35 +49,40 @@ void serial_init()
 
     // Setup output pin for TX
 
-    // USART1 mapped to Alternate Function pins (TX=PB6, RX=PB7)
-    AFIO->MAPR |= AFIO_MAPR_USART1_REMAP;
+    // USART1 connected to PB6 (TX), PB7 (RX) alternate function 0.
 
-    // Select alternate position for USART1
-#if defined(USART1_ALT_POSITION)
-    // Set TX pin to output (alterate function position)
-    // Port B, pin 6 CNF: alterate function output, push-pull
-    GPIOB->CRL &= ~GPIO_CRL_CNF6;
-    GPIOB->CRL |= GPIO_CRL_CNF6_1;
-    // MODE: Output, 10MHz
-    GPIOB->CRL &= ~GPIO_CRL_MODE6;
-    GPIOB->CRL |= GPIO_CRL_MODE6_0;	
-#endif
+    // Note: hard-coded register number due to there being 8 per register
+    // Clear these - which is the default anyway - to get Alternate Function 0
+    TX_PORT->AFR[0] &= ~(0b1111 << (4 * TX_BIT));
+    TX_PORT->AFR[0] &= ~(0b1111 << (4 * RX_BIT));
+
+    // Select Alternate Function for the GPIO pin modes
+    TX_PORT->MODER &= MODE_MASK(TX_BIT);
+    TX_PORT->MODER |= MODE_ALT_FUNC(TX_BIT);
+    RX_PORT->MODER &= MODE_MASK(RX_BIT);
+    RX_PORT->MODER |= MODE_ALT_FUNC(RX_BIT);
+
+    // Speed them up
+    TX_PORT->OSPEEDR &= OSPEED_MASK(TX_BIT);
+    TX_PORT->OSPEEDR |= OSPEED_FAST(TX_BIT);
+    RX_PORT->OSPEEDR &= OSPEED_MASK(RX_BIT);
+    RX_PORT->OSPEEDR |= OSPEED_FAST(RX_BIT);
 
 	// Enable receive interrupt (transmit will be enabled upon sending data)
-    USART1->CR1 |= USART_CR1_RXNEIE;
+    USART1->CR1 |= USART_CR1_RXNEIE_RXFNEIE;
 
     // Reset USART1
     // This doesn't work
     //RCC->APB2RSTR |= RCC_APB2RSTR_USART1RST;
 
     // Turn on the USART1 interrupt in the system as well. This is so daft.
-
     serial_sei();
 }
 
 // Must be called with serial interrupts disabled
 void tx_char(int8_t data)
 {
+    /*
     // If there's no character already being sent
     if (tx_idle)
     {
@@ -94,10 +100,12 @@ void tx_char(int8_t data)
                 
     // Put data into buffer
     tx_buffer[(tx_ptr + tx_len++) % TXBUFFER] = data;
+    */
 }
 
 void serial_sendchar(int8_t data)
 {
+    /*
     // Wait for buffer to have room.
     while (1) {
         serial_cli();
@@ -110,6 +118,7 @@ void serial_sendchar(int8_t data)
         // TODO:
         //_delay_ms(1);
     }
+    */
 }
 
 // Send a bunch of characters at once
@@ -159,6 +168,7 @@ int8_t serial_receive()
 __attribute__((interrupt ("isr"))) 
 void usart1_vector()
 {
+    /*
     // Receive buffer not empty
     if (USART1->SR & USART_SR_RXNE) {
         // Receive the data (clears the RXNE flag)
@@ -190,4 +200,5 @@ void usart1_vector()
             tx_len--;
         }
     }
+    */
 }

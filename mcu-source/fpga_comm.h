@@ -1,6 +1,8 @@
 #ifndef __FPGA_COMM_H
 #define __FPGA_COMM_H
 
+#include "stm32c0xx.h"
+
 #include <stdint.h>
 #include "stdutil.h"
 
@@ -31,10 +33,11 @@
 #define A_READY_BIT _BV(1)
 
 // Front panel LEDs
-#define RED_LED_PORT 0
-#define RED_LED_BIT _BV(2)
-#define GREEN_LED_PORT 0
-#define GREEN_LED_BIT _BV(1)
+#define RED_LED_PORT GPIOC
+#define RED_LED_BIT 13
+
+#define GREEN_LED_PORT GPIOC
+#define GREEN_LED_BIT 14
 
 // SD card-detect
 #define SDCARD0_DETECT_PORT 0

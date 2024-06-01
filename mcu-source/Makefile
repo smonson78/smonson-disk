@@ -9,11 +9,10 @@ PCLK1=24000000
 PCLK2=24000000
 FLASH_ADDR=0x8000000
 
-# Device configuration
-# TODO: Get the Cortex-M0+ one
-FAMILY=STM32F1xx
-DEVICE=STM32F103xB
-CUBE=STM32Cube_FW_F1_V1.8.0
+# Device configuration for STM32C031, ARM Cortex M0+
+FAMILY=STM32C0xx
+DEVICE=STM32C031xx
+CUBE=STM32CubeC0
 
 CC=arm-none-eabi-gcc
 AS=arm-none-eabi-as
@@ -27,8 +26,9 @@ CFLAGS=-g -Wall -O3 -mcpu=$(MCPU) -mthumb --specs=picolibc.specs -DF_CLK=$(FCLK)
 LDFLAGS=-mcpu=$(MCPU) --specs=picolibc.specs -Tlinker.ld
 LDLIBS=
 
-TARGET=test
-OBJS=debug.o fpga_comm.o serial.o sdcard.o spi.o rtc.o timer0.o int.o
+TARGET=hdd
+#OBJS=debug.o fpga_comm.o serial.o sdcard.o spi.o rtc.o timer0.o int.o
+OBJS=fpga_comm.o serial.o int.o
 
 $(TARGET).bin: $(TARGET).elf
 	$(OBJCOPY) -j .init -j .text -j .data -O binary $^ $@
