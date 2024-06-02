@@ -4,7 +4,7 @@ MCPU=cortex-m0plus
 # CPU architecture selection (for objdump) - might not even matter.
 ARCH=armv6-m
 
-FCLK=24000000
+FCLK=48000000
 PCLK1=24000000
 PCLK2=24000000
 FLASH_ADDR=0x8000000
@@ -17,6 +17,7 @@ CUBE=STM32CubeC0
 CC=arm-none-eabi-gcc
 AS=arm-none-eabi-as
 OBJCOPY=arm-none-eabi-objcopy
+OBJDUMP=arm-none-eabi-objdump
 
 STFLASH=st-flash
 
@@ -28,7 +29,7 @@ LDLIBS=
 
 TARGET=hdd
 #OBJS=debug.o fpga_comm.o serial.o sdcard.o spi.o rtc.o timer0.o int.o
-OBJS=fpga_comm.o serial.o int.o
+OBJS=fpga_comm.o int.o
 
 $(TARGET).bin: $(TARGET).elf
 	$(OBJCOPY) -j .init -j .text -j .data -O binary $^ $@
@@ -41,3 +42,6 @@ flash: $(TARGET).bin
 
 clean:
 	$(RM) *.o *.elf $(TARGET).bin
+
+dasm: $(TARGET).elf
+	$(OBJDUMP) -S $(TARGET).elf

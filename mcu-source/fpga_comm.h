@@ -34,10 +34,10 @@
 
 // Front panel LEDs
 #define RED_LED_PORT GPIOC
-#define RED_LED_BIT 13
+#define RED_LED_BIT 14
 
 #define GREEN_LED_PORT GPIOC
-#define GREEN_LED_BIT 14
+#define GREEN_LED_BIT 13
 
 // SD card-detect
 #define SDCARD0_DETECT_PORT 0

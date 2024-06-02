@@ -10,16 +10,16 @@ volatile uint8_t tx_buffer[TXBUFFER];
 volatile uint8_t rx_ptr, rx_len, tx_ptr, tx_len, tx_idle;
 
 void serial_cli() {
-    NVIC->ICER[0] = USART1_VECTOR_NUM;
+    //NVIC->ICER[0] = USART1_VECTOR_NUM;
 }
 
 void serial_sei() {
-    NVIC->ISER[0] = USART1_VECTOR_NUM;
+    //NVIC->ISER[0] = USART1_VECTOR_NUM;
 }
 
 void serial_init()
 {
-    serial_cli();
+    //serial_cli();
 
     // Empty buffers
     rx_ptr = 0;
@@ -27,6 +27,8 @@ void serial_init()
     tx_ptr = 0;
     tx_len = 0;
     tx_idle = 1;
+
+ #if 0   
 
     // Enable UART1 device, enable transmitter, enable receiver
     USART1->CR1 |= USART_CR1_UE;
@@ -77,6 +79,7 @@ void serial_init()
 
     // Turn on the USART1 interrupt in the system as well. This is so daft.
     serial_sei();
+#endif
 }
 
 // Must be called with serial interrupts disabled

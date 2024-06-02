@@ -104,19 +104,17 @@ void set_acsi_id_mask() {
 }
 
 int main() {
+
+    // Turn on the GPIO peripheral clocks for all GPIO ports
+    RCC->IOPENR |= RCC_IOPENR_GPIOAEN | RCC_IOPENR_GPIOBEN | RCC_IOPENR_GPIOCEN | RCC_IOPENR_GPIODEN | RCC_IOPENR_GPIOFEN;
+
     // Setup device pins
     setup();
 
     // Speed up the clock
     //clk_48MHz();
 
-    // Turn on the GPIO peripheral clocks for all ports
-    //RCC->APB2ENR |= RCC_APB2ENR_IOPAEN | RCC_APB2ENR_IOPBEN | RCC_APB2ENR_IOPCEN 
-	//    | RCC_APB2ENR_IOPDEN | RCC_APB2ENR_IOPEEN;
-    RCC->IOPENR |= RCC_IOPENR_GPIOAEN | RCC_IOPENR_GPIOBEN | RCC_IOPENR_GPIOCEN | RCC_IOPENR_GPIODEN;
-
 /*
-
     // Enable the peripheral clock to USART1
     RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
     // Enable the peripheral clock to the alternate function remapper
@@ -127,7 +125,6 @@ int main() {
 
 
     while (1) {
-        // Reset the state of pin 13 to output low (on)
         green_led_on();
         red_led_off();
 
@@ -135,8 +132,8 @@ int main() {
 
         green_led_off();
         red_led_on();
-        delay(500);
 
+        delay(500);
     }
 
 #if 0

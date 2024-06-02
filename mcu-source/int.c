@@ -31,7 +31,7 @@ void (* const __interrupt_vector[16])() = {
 
 // STM32C031 non-core vector table to go on the end of the core one
 __attribute((section (".init")))
-void (* const interrupts[60])() = {
+void (* const interrupts[32])() = {
   0, // 0
   0,
   0,
@@ -59,7 +59,7 @@ void (* const interrupts[60])() = {
   0,
   0,
   0,
-  usart1_vector,
+  0, //usart1_vector,
   0,
   0,
   0, // 30
