@@ -5,9 +5,16 @@
 #include "stdutil.h"
 #include "debug.h"
 
-#define SPI_PIN_MOSI _BV(4)
-#define SPI_PIN_MISO _BV(5)
-#define SPI_PIN_CLK  _BV(6)
+#define SPI SPI1
+
+#define SPI_MOSI_PORT GPIOB
+#define SPI_MOSI_BIT 5
+
+#define SPI_MISO_PORT GPIOB
+#define SPI_MISO_BIT 4
+
+#define SPI_CLK_PORT GPIOB
+#define SPI_CLK_BIT 3
 
 void spi_setup();
 uint8_t spi_transfer(uint8_t send);

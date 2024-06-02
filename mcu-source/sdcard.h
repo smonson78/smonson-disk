@@ -7,11 +7,11 @@
 #include "stdutil.h"
 
 // For SD card SPI
-#define SPI_CS0_PORT 0
-#define SPI_CS0_BIT _BV(2)
+#define SPI_CS0_PORT GPIOC
+#define SPI_CS0_BIT 7
 
-#define SPI_CS1_PORT 0
-#define SPI_CS1_BIT _BV(3)
+#define SPI_CS1_PORT GPIOA
+#define SPI_CS1_BIT 10
 
 typedef enum {
 	SD_CMD_0_GO_IDLE_STATE = 0,

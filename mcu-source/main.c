@@ -19,15 +19,6 @@
  * License: GPL 3 or later https://www.gnu.org/licenses/gpl-3.0.en.html unless otherwise noted.
  */
 
-// Quick and dirty delay
-static void delay (unsigned int time) {
-    for (unsigned int i = 0; i < time; i++) {
-        for (volatile unsigned int j = 0; j < 1600; j++) {
-            // This inner loop is about 1ms at 48MHz
-        }
-    }
-}
-
 // Change the HSISYS prescaler from 2 to 0 to increase the clock from 12MHz to 48MHz
 void clk_48MHz() {
 
@@ -39,69 +30,10 @@ void clk_48MHz() {
         // wait for new latency to be applied
     }
 
-
-
     // Change HSISYS prescale value from default value 0b010 to 0b000 to get 48MHz operation
     RCC->CR &= ~RCC_CR_HSIDIV_Msk;
     //RCC->CR |= 0b001 << RCC_CR_HSIDIV_Pos; // Prescaler x2
     //RCC->CR |= 0b010 << RCC_CR_HSIDIV_Pos; // Prescaler x4
-
-
-/*
-    // Enable 2 wait-states for flash since we are going to pump the clock up.
-    // 2 wait states are required for clock speeds 48-72MHz
-    FLASH->ACR |= FLASH_ACR_LATENCY_2;
-
-    // Enable the HSI clock oscillator
-    RCC->CR |= RCC_CR_HSION;
-    // Wait for HSI to become stable
-    while (!(RCC->CR & RCC_CR_HSIRDY)) {
-    }
-
-    // Switch core clock source to HSI
-    RCC->CFGR |= RCC_CFGR_SW_HSI;
-    // Wait for switchover to finish
-    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_HSI) {
-    }
-
-    // APB clock (low-speed peripheral) to be HCLK / 2, i.e. 24MHz
-    // AKA APB1
-    RCC->CFGR &= RCC_CFGR_PPRE1;
-    RCC->CFGR |= RCC_CFGR_PPRE1_DIV2;
-
-    // APB2 clock (high-speed peripheral) to be HCLK / 2, i.e. 24MHz
-    // AKA PCLK2
-    RCC->CFGR &= RCC_CFGR_PPRE2;
-    RCC->CFGR |= RCC_CFGR_PPRE2_DIV2;
-
-    // Now turn PLL off so that it can be changed
-    if (RCC->CR & RCC_CR_PLLRDY) {
-        RCC->CR &= ~RCC_CR_PLLON;
-
-        // Wait for PLL to stop
-        while (RCC->CR & RCC_CR_PLLRDY) {
-        }
-    }
-
-    // PLL source: half HSI (4MHz)
-    RCC->CFGR &= ~RCC_CFGR_PLLSRC;
-
-    // PLL multiplier x12
-    RCC->CFGR &= ~RCC_CFGR_PLLMULL;
-    RCC->CFGR |= RCC_CFGR_PLLMULL12;
-
-    // Enable PLL
-    RCC->CR |= RCC_CR_PLLON;
-    // Wait for PLL to become ready
-    while (!(RCC->CR & RCC_CR_PLLRDY)) {
-    }
-
-    // Switch core clock source to PLL 
-    RCC->CFGR |= RCC_CFGR_SW_PLL;
-    // Wait for switchover to finish
-    while (!(RCC->CFGR & RCC_CFGR_SWS_PLL)) {
-    }
-    */
 }
 
 void set_acsi_id_mask() {
@@ -131,11 +63,11 @@ int main() {
     // Turn on the GPIO peripheral clocks for all GPIO ports
     RCC->IOPENR |= RCC_IOPENR_GPIOAEN | RCC_IOPENR_GPIOBEN | RCC_IOPENR_GPIOCEN | RCC_IOPENR_GPIODEN | RCC_IOPENR_GPIOFEN;
 
-    // Enable the peripheral clock to NVIC
-    
-
     // Enable the peripheral clock to USART1
     RCC->APBENR2 |= RCC_APBENR2_USART1EN;
+
+    // Enable the peripheral clock to SPI1
+    RCC->APBENR2 |= RCC_APBENR2_SPI1EN;
 
     // Select prescaler for SYSCLK --> HCLK
     RCC->CFGR &= ~RCC_CFGR_HPRE; // value 0b0000 (default) = precaler x1
@@ -166,15 +98,12 @@ int main() {
     //RCC->CCIPR |= RCC_CCIPR_USART1SEL_1; // HSIKER
     //RCC->CCIPR |= RCC_CCIPR_USART1SEL_2; // LSE
 
-    // Enable the peripheral clock to SPI1
-    //RCC->APBENR2 |= RCC_APBENR2_SPI1EN;
-
     // Reset USART1
     RCC->APBRSTR2 |= RCC_APBRSTR2_USART1RST;
     RCC->APBRSTR2 &= ~RCC_APBRSTR2_USART1RST;
 
     // Reset SPI
-    //RCC->APBRSTR2 |= RCC_APBRSTR2_SPI1RST;
+    RCC->APBRSTR2 |= RCC_APBRSTR2_SPI1RST;
 
     // Setup device pins
     setup();
@@ -185,57 +114,65 @@ int main() {
     // Speed up the clock
     clk_48MHz();
 
-    //__enable_irq();
-
-    while (1) {
-        green_led_on();
-        //red_led_off();
-
-        delay(500);
-
-        green_led_off();
-        //red_led_on();
-
-        delay(500);
-
-        serial_send("Hello, hello.\n");
-
-    }
-
-#if 0
-    
-
     // Debug during startup
     debug_level = 5;
 
-    //init_clock();
-        
-    //debug("\n\r\n\r\n\r-- Startup");
+    init_clock();
+
+    debug("\n\r\n\r\n\r-- Startup");
 
     // Setup SPI pins
-    //spi_setup();
+    spi_setup();
     //sdcard_setup();
     //rtc_setup();
 
+    debug("Setup done");
     // Settle down for a bit
     _delay_ms(10);
 
+    debug("After 1st delay");
     //datetime_t datetime;
     //rtc_get(&datetime);
 
     // TODO: Print datetime for console here instead of in rtc_read
 
     // Flash both lights to indicate startup
-    /*
     for (uint8_t i = 0; i < 2; i++) {
         red_led_on();
         green_led_on();
         _delay_ms(250);
+
         red_led_off();
         green_led_off();
         _delay_ms(250);
-    }*/
+    }
 
+    debug("Lights flashed");
+
+    //sdcard_init();
+
+    // Apparently this is enabled by default.
+    //__enable_irq();
+
+    while (1) {
+        green_led_on();
+        //red_led_off();
+
+        _delay_ms(500);
+
+        green_led_off();
+        //red_led_on();
+
+        _delay_ms(500);
+
+        debug_nocr("Time: ");
+        debug_decimal(get_clock());
+        debug("");
+
+    }
+
+#if 0
+    
     // Reset FPGA registers to default
     // This sets command mode, and ACSI bus direction IN
     extra_data_byte = EXTRA_BYTE_DEFAULT;

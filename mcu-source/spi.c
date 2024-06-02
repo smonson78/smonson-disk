@@ -7,20 +7,19 @@
 void spi_fast() {
 
     // Disable SPI
-    SPI1->CR1 |= SPI_CR1_SPE;
+    SPI->CR1 &= ~SPI_CR1_SPE;
 
     // Switch to Master
-    SPI1->CR1 |= SPI_CR1_MSTR;
+    SPI->CR1 |= SPI_CR1_MSTR;
 
-    // Baud rate control: PCLK / 2 (12MHz) - BR = 0b000
-    SPI1->CR1 &= ~SPI_CR1_BR;
-    //SPI1->CR1 |= SPI_CR1_BR_1; // clock /8
+    // Baud rate control: PCLK / 2 (24MHz) - BR = 0b000
+    SPI->CR1 &= ~SPI_CR1_BR;
 
     // Software NSS control - with SS high
-    SPI1->CR1 |= SPI_CR1_SSM | SPI_CR1_SSI;
+    SPI->CR1 |= SPI_CR1_SSM | SPI_CR1_SSI;
 
     // Enable SPI
-    SPI1->CR1 |= SPI_CR1_SPE;
+    SPI->CR1 |= SPI_CR1_SPE;
 }
 
 // Switch to 312.5 KHz operation
@@ -35,31 +34,28 @@ void spi_slow() {
 void spi_setup() {
    	// SPI output pins
 
-    // MOSI - A7
-    GPIOA->CRL &= ~GPIO_CRL_CNF7;
-    GPIOA->CRL &= ~GPIO_CRL_MODE7;
-    // Put pin in alternate function push-pull mode
-    GPIOA->CRL |= GPIO_CRL_CNF7_1;
-    // Set the output mode to max. 50MHz
-    GPIOA->CRL |= GPIO_CRL_MODE7_1 | GPIO_CRL_MODE7_0;
+    // MOSI - PB5
+    // Alternate function 0, very fast
+    SPI_MOSI_PORT->MODER &= MODE_MASK(SPI_MOSI_BIT);
+    SPI_MOSI_PORT->MODER |= MODE_ALT_FUNC(SPI_MOSI_BIT);
+    SPI_MOSI_PORT->OSPEEDR &= OSPEED_MASK(SPI_MOSI_BIT);
+    SPI_MOSI_PORT->OSPEEDR |= OSPEED_VFAST(SPI_MOSI_BIT);
 
-    // MISO - A6
-    GPIOA->CRL &= ~GPIO_CRL_CNF6;
-    GPIOA->CRL &= ~GPIO_CRL_MODE6;
-    // Put pin in input mode with pullup/down
-    GPIOA->CRL |= GPIO_CRL_CNF6_1;
-    // Set input mode
-    // enable pull up resistor
-    GPIOA->ODR |= GPIO_ODR_ODR6;
+    // MISO - PB4
+    // Alternate function 0, very fast, pull-up
+    SPI_MISO_PORT->MODER &= MODE_MASK(SPI_MISO_BIT);
+    SPI_MISO_PORT->MODER |= MODE_ALT_FUNC(SPI_MISO_BIT);
+    SPI_MISO_PORT->OSPEEDR &= OSPEED_MASK(SPI_MISO_BIT);
+    SPI_MISO_PORT->OSPEEDR |= OSPEED_VFAST(SPI_MISO_BIT);
+    SPI_MISO_PORT->PUPDR &= PUPD_MASK(SPI_MISO_BIT);
+    SPI_MISO_PORT->PUPDR |= PUPD_PULLUP(SPI_MISO_BIT);
 
-    // SCK - A5
-    GPIOA->CRL &= ~GPIO_CRL_CNF5;
-    GPIOA->CRL &= ~GPIO_CRL_MODE5;
-    // Put pin in alternate function push-pull mode
-    GPIOA->CRL |= GPIO_CRL_CNF5_1;
-    // Set the output mode to max. 50MHz
-    GPIOA->CRL |= GPIO_CRL_MODE5_1 | GPIO_CRL_MODE5_0;
-
+    // SCK - PB3
+    // Alternate function 0, very fast
+    SPI_CLK_PORT->MODER &= MODE_MASK(SPI_CLK_BIT);
+    SPI_CLK_PORT->MODER |= MODE_ALT_FUNC(SPI_CLK_BIT);
+    SPI_CLK_PORT->OSPEEDR &= OSPEED_MASK(SPI_CLK_BIT);
+    SPI_CLK_PORT->OSPEEDR |= OSPEED_VFAST(SPI_CLK_BIT);
     spi_fast();
 }
 

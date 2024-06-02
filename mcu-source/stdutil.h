@@ -5,7 +5,7 @@
 #define _BV(x) (1 << x)
 
 // TODO
-#define _delay_ms(x) ;
+//#define _delay_ms(x) ;
 #define _delay_us(x) ;
 
 // Conveniences for setting various registers
@@ -21,6 +21,11 @@
 #define OTYPE_MASK(p) (~(0b1 << OTYPE_POS(p)))
 // Push-pull is default (0)
 #define OTYPE_OPEN_DRAIN(p) (~(0b1 << OTYPE_POS(p)))
+
+#define PUPD_POS(p) (p * 2)
+#define PUPD_MASK(p) (~(0b11 << PUPD_POS(p)))
+#define PUPD_PULLUP(p) (0b01 << PUPD_POS(p))
+#define PUPD_PULLDOWN(p) (0b10 << PUPD_POS(p))
 
 #define OSPEED_POS(p) (p * 2)
 #define OSPEED_MASK(p) (~(0b11 << OSPEED_POS(p)))

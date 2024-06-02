@@ -17,26 +17,29 @@ sd_sector_buffer_t sd_buffer;
 
 void sdcard_setup() {
 
-    // Card 0 CS - output
-    // NSS - PA4
-    // Put pin in general purpose open drain mode
-    GPIOA->CRL &= ~GPIO_CRL_CNF4;
-    GPIOA->CRL &= ~GPIO_CRL_MODE4;
-    GPIOA->CRL |= GPIO_CRL_CNF4_0;
+    // Card 0 CS - output on PC7
+    // Put pin in general purpose open drain mode with pull-up
+    SPI_CS0_PORT->MODER &= MODE_MASK(SPI_CS0_BIT);
+    SPI_CS0_PORT->MODER |= MODE_OUTPUT(SPI_CS0_BIT);
+    SPI_CS0_PORT->OTYPER &= OTYPE_MASK(SPI_CS0_BIT);
+    SPI_CS0_PORT->OTYPER |= OTYPE_OPEN_DRAIN(SPI_CS0_BIT);
+    SPI_CS0_PORT->OSPEEDR &= OSPEED_MASK(SPI_CS0_BIT);
+    SPI_CS0_PORT->OSPEEDR |= OSPEED_SLOW(SPI_CS0_BIT);
+    SPI_CS0_PORT->PUPDR &= PUPD_MASK(SPI_CS0_BIT);
+    SPI_CS0_PORT->PUPDR |= PUPD_PULLUP(SPI_CS0_BIT);
 
-    // Set the output mode to max. 2MHz
-    GPIOA->CRL |= GPIO_CRL_MODE4_1;
+    // Card 1 CS - output on PA10
+    // Put pin in general purpose open drain mode with pull-up
+    SPI_CS1_PORT->MODER &= MODE_MASK(SPI_CS1_BIT);
+    SPI_CS1_PORT->MODER |= MODE_OUTPUT(SPI_CS1_BIT);
+    SPI_CS1_PORT->OTYPER &= OTYPE_MASK(SPI_CS1_BIT);
+    SPI_CS1_PORT->OTYPER |= OTYPE_OPEN_DRAIN(SPI_CS1_BIT);
+    SPI_CS1_PORT->OSPEEDR &= OSPEED_MASK(SPI_CS1_BIT);
+    SPI_CS1_PORT->OSPEEDR |= OSPEED_SLOW(SPI_CS1_BIT);
+    SPI_CS1_PORT->PUPDR &= PUPD_MASK(SPI_CS1_BIT);
+    SPI_CS1_PORT->PUPDR |= PUPD_PULLUP(SPI_CS1_BIT);
 
-    // Enable pull-up resistor
-    GPIOA->ODR |= GPIO_ODR_ODR4;
-
-    // SS high
-    GPIOA->BSRR = GPIO_BSRR_BS4;
-
-    // Card 1 CS - output
-    //SPI_CS1_PORT.DIRSET = SPI_CS1_BIT;
-
-    //sd_unselect();
+    sd_unselect();
 }
 
 void sd_select(uint8_t bus_id) {
@@ -48,10 +51,10 @@ void sd_select(uint8_t bus_id) {
     switch(bus_id) {
         case 0:
             debug("Selecting card");
-            GPIOA->BSRR = GPIO_BSRR_BR4;
+            SPI_CS0_PORT->BSRR = BSR_LOW(SPI_CS0_BIT);
             break;
         case 1:
-            //SPI_CS1_PORT.OUTCLR = SPI_CS1_BIT;
+            SPI_CS1_PORT->BSRR = BSR_LOW(SPI_CS1_BIT);
             break;
         default:
             debug_nocr("Non-existent bus ID selected: ");
@@ -70,9 +73,8 @@ void sd_unselect() {
     spi_wait_ready();
 
 	// Turn both chip selects OFF 
-    //SPI_CS0_PORT.OUTSET = SPI_CS0_BIT;
-    //SPI_CS1_PORT.OUTSET = SPI_CS1_BIT;
-    GPIOA->BSRR = GPIO_BSRR_BS4;
+    SPI_CS0_PORT->BSRR = BSR_HIGH(SPI_CS0_BIT);
+    SPI_CS1_PORT->BSRR = BSR_HIGH(SPI_CS1_BIT);
 
     debug("Unselecting card");
 
@@ -348,7 +350,7 @@ uint8_t wait_spi_response(uint8_t ms_delay, uint8_t x) {
     uint32_t target_time = ((uint32_t)ms_delay) / (1000 / CLOCK_RATE);
 
     //debug("- Waiting for SPI transfer");
-    start_clock();
+    clear_clock();
 
     while (1) {
         // The card needs lots of clock cycles to prepare a block for reading, so we must keep toggling the clock
@@ -377,7 +379,7 @@ uint8_t wait_spi_response2(uint8_t ms_delay, uint8_t x) {
     uint32_t target_time = ((uint32_t)ms_delay) / (1000 / CLOCK_RATE);
 
     //debug("- Waiting for SPI transfer");
-    start_clock();
+    clear_clock();
 
     while (1) {
         // The card needs lots of clock cycles to prepare a block for reading, so we must keep toggling the clock
