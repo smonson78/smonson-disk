@@ -59,7 +59,7 @@ void (* const interrupts[32])() = {
   0,
   0,
   0,
-  0, //usart1_vector,
+  usart1_vector,
   0,
   0,
   0, // 30

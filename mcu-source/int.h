@@ -3,6 +3,4 @@
 
 extern void (* const interrupts[32])();
 
-#define USART1_VECTOR_NUM 27
-
 #endif

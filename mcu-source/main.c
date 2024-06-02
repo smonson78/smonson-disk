@@ -28,8 +28,25 @@ static void delay (unsigned int time) {
     }
 }
 
-// Use the High-Speed Internal clock to run at 48MHz
+// Change the HSISYS prescaler from 2 to 0 to increase the clock from 12MHz to 48MHz
 void clk_48MHz() {
+
+    // Pump up the flash memory wait states value to 2 since we will be operating above 24MHz
+    FLASH->ACR &= ~FLASH_ACR_LATENCY;
+    FLASH->ACR |= 0b001 << FLASH_ACR_LATENCY_Pos;
+
+    while ((FLASH->ACR & FLASH_ACR_LATENCY) != (0b001 << FLASH_ACR_LATENCY_Pos)) {
+        // wait for new latency to be applied
+    }
+
+
+
+    // Change HSISYS prescale value from default value 0b010 to 0b000 to get 48MHz operation
+    RCC->CR &= ~RCC_CR_HSIDIV_Msk;
+    //RCC->CR |= 0b001 << RCC_CR_HSIDIV_Pos; // Prescaler x2
+    //RCC->CR |= 0b010 << RCC_CR_HSIDIV_Pos; // Prescaler x4
+
+
 /*
     // Enable 2 wait-states for flash since we are going to pump the clock up.
     // 2 wait states are required for clock speeds 48-72MHz
@@ -105,39 +122,88 @@ void set_acsi_id_mask() {
 
 int main() {
 
+    // After reset, HSI 48Mhz clock is in use
+    // HSISYS clock is preset to HSI/4 = 12MHz
+    // SYSCLK is preset to use HSISYS for clock source
+    // HCLK derives from SYSCLK through prescaler value x1
+    // PCLK derives from HCLK through prescaler value x1
+
     // Turn on the GPIO peripheral clocks for all GPIO ports
     RCC->IOPENR |= RCC_IOPENR_GPIOAEN | RCC_IOPENR_GPIOBEN | RCC_IOPENR_GPIOCEN | RCC_IOPENR_GPIODEN | RCC_IOPENR_GPIOFEN;
+
+    // Enable the peripheral clock to NVIC
+    
+
+    // Enable the peripheral clock to USART1
+    RCC->APBENR2 |= RCC_APBENR2_USART1EN;
+
+    // Select prescaler for SYSCLK --> HCLK
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // value 0b0000 (default) = precaler x1
+    //RCC->CFGR |= 0b1000 << RCC_CFGR_HPRE_Pos; // prescaler x2
+    //RCC->CFGR |= 0b1001 << RCC_CFGR_HPRE_Pos; // prescaler x4
+    //RCC->CFGR |= 0b1010 << RCC_CFGR_HPRE_Pos; // prescaler x8
+    //RCC->CFGR |= 0b1011 << RCC_CFGR_HPRE_Pos; // prescaler x16
+    //RCC->CFGR |= 0b1100 << RCC_CFGR_HPRE_Pos; // prescaler x64
+    //RCC->CFGR |= 0b1101 << RCC_CFGR_HPRE_Pos; // prescaler x128
+    //RCC->CFGR |= 0b1110 << RCC_CFGR_HPRE_Pos; // prescaler x256
+    //RCC->CFGR |= 0b1111 << RCC_CFGR_HPRE_Pos; // prescaler x512
+
+    // Select prescaler for HCLK --> PCLK
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // value 0b000 (default) = precaler x1
+    //RCC->CFGR |= 0b100 << RCC_CFGR_PPRE_Pos; // prescaler x2
+    //RCC->CFGR |= 0b101 << RCC_CFGR_PPRE_Pos; // prescaler x4
+    //RCC->CFGR |= 0b110 << RCC_CFGR_PPRE_Pos; // prescaler x8
+    //RCC->CFGR |= 0b111 << RCC_CFGR_PPRE_Pos; // prescaler x16
+
+    // Select divider for HSIKER (default: 3, 16MHz)
+    //RCC->CR &= ~RCC_CR_HSIKERDIV; // 0b000 (prescaler value 1) - 48MHz
+    //RCC->CR |= RCC_CR_HSIKERDIV_0; // 0b001 (prescaler value 2) - 24MHz
+    //RCC->CR |= RCC_CR_HSIKERDIV_1; // 0b010 (prescaler value 3) - 16MHz
+
+    // Select clock source for USART1 (default: PCLK)
+    RCC->CCIPR &= ~RCC_CCIPR_USART1SEL;
+    //RCC->CCIPR |= RCC_CCIPR_USART1SEL_0; // SYSCLK
+    //RCC->CCIPR |= RCC_CCIPR_USART1SEL_1; // HSIKER
+    //RCC->CCIPR |= RCC_CCIPR_USART1SEL_2; // LSE
+
+    // Enable the peripheral clock to SPI1
+    //RCC->APBENR2 |= RCC_APBENR2_SPI1EN;
+
+    // Reset USART1
+    RCC->APBRSTR2 |= RCC_APBRSTR2_USART1RST;
+    RCC->APBRSTR2 &= ~RCC_APBRSTR2_USART1RST;
+
+    // Reset SPI
+    //RCC->APBRSTR2 |= RCC_APBRSTR2_SPI1RST;
 
     // Setup device pins
     setup();
 
+    // Setup USART1
+    serial_init();
+
     // Speed up the clock
-    //clk_48MHz();
+    clk_48MHz();
 
-/*
-    // Enable the peripheral clock to USART1
-    RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
-    // Enable the peripheral clock to the alternate function remapper
-    RCC->APB2ENR |= RCC_APB2ENR_AFIOEN;
-    // Enable the peripheral clock to SPI1
-    RCC->APB2ENR |= RCC_APB2ENR_SPI1EN;
-  */  
-
+    //__enable_irq();
 
     while (1) {
         green_led_on();
-        red_led_off();
+        //red_led_off();
 
         delay(500);
 
         green_led_off();
-        red_led_on();
+        //red_led_on();
 
         delay(500);
+
+        serial_send("Hello, hello.\n");
+
     }
 
 #if 0
-    serial_init();
+    
 
     // Debug during startup
     debug_level = 5;

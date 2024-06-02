@@ -1,6 +1,7 @@
 #include "stm32c0xx.h"
 
 #include "stdutil.h"
+#include "fpga_comm.h"
 #include "serial.h"
 #include "int.h"
 
@@ -10,16 +11,16 @@ volatile uint8_t tx_buffer[TXBUFFER];
 volatile uint8_t rx_ptr, rx_len, tx_ptr, tx_len, tx_idle;
 
 void serial_cli() {
-    //NVIC->ICER[0] = USART1_VECTOR_NUM;
+    NVIC_DisableIRQ(USART1_IRQn);
 }
 
 void serial_sei() {
-    //NVIC->ISER[0] = USART1_VECTOR_NUM;
+    NVIC_EnableIRQ(USART1_IRQn);
 }
 
 void serial_init()
 {
-    //serial_cli();
+    serial_cli();
 
     // Empty buffers
     rx_ptr = 0;
@@ -28,15 +29,11 @@ void serial_init()
     tx_len = 0;
     tx_idle = 1;
 
- #if 0   
-
     // Enable UART1 device, enable transmitter, enable receiver
     USART1->CR1 |= USART_CR1_UE;
 
     // Setup baud rate
-    // NOTE the datasheet is full of weird maths involving a fixed-point fractional number.
-    // This can all be ignored, it just works out to a plain int in the end.
-    USART1->BRR = F_PCLK2 / F_BAUD;
+    USART1->BRR = F_PCLK / F_BAUD;
 
     // Word length is 8 bits by default
 
@@ -66,26 +63,22 @@ void serial_init()
 
     // Speed them up
     TX_PORT->OSPEEDR &= OSPEED_MASK(TX_BIT);
-    TX_PORT->OSPEEDR |= OSPEED_FAST(TX_BIT);
+    TX_PORT->OSPEEDR |= OSPEED_VFAST(TX_BIT);
     RX_PORT->OSPEEDR &= OSPEED_MASK(RX_BIT);
-    RX_PORT->OSPEEDR |= OSPEED_FAST(RX_BIT);
+    RX_PORT->OSPEEDR |= OSPEED_VFAST(RX_BIT);
 
 	// Enable receive interrupt (transmit will be enabled upon sending data)
     USART1->CR1 |= USART_CR1_RXNEIE_RXFNEIE;
 
-    // Reset USART1
-    // This doesn't work
-    //RCC->APB2RSTR |= RCC_APB2RSTR_USART1RST;
+    // FIFO mode is off by default
 
-    // Turn on the USART1 interrupt in the system as well. This is so daft.
+    // Turn on the USART1 interrupt
     serial_sei();
-#endif
 }
 
 // Must be called with serial interrupts disabled
 void tx_char(int8_t data)
 {
-    /*
     // If there's no character already being sent
     if (tx_idle)
     {
@@ -93,22 +86,27 @@ void tx_char(int8_t data)
         tx_idle = 0;
         
 	    // Put data into buffer, sends the data
-        USART1->DR = data;
+        USART1->TDR = data;
 
         // Re-enable Transmit Data Register Empty interrupt
-        USART1->CR1 |= USART_CR1_TXEIE;
+        USART1->CR1 |= USART_CR1_TXEIE_TXFNFIE;
 
         return;
     }
                 
     // Put data into buffer
     tx_buffer[(tx_ptr + tx_len++) % TXBUFFER] = data;
-    */
 }
 
 void serial_sendchar(int8_t data)
 {
-    /*
+    // Unbuffered version:
+    //while ((USART1->ISR & USART_ISR_TXE_TXFNF) == 0) {
+        // Wait
+    //}
+    //USART1->TDR = data;
+
+#if 1
     // Wait for buffer to have room.
     while (1) {
         serial_cli();
@@ -121,7 +119,7 @@ void serial_sendchar(int8_t data)
         // TODO:
         //_delay_ms(1);
     }
-    */
+#endif
 }
 
 // Send a bunch of characters at once
@@ -164,18 +162,14 @@ int8_t serial_receive()
     return data;
 }
 
-// FIXME: need to set these vector names from the USART macro (for avr128da).
-
-// Receive Complete interrupt handler
-
+// USART1 global interrupt handler
 __attribute__((interrupt ("isr"))) 
 void usart1_vector()
 {
-    /*
     // Receive buffer not empty
-    if (USART1->SR & USART_SR_RXNE) {
+    if (USART1->ISR & USART_ISR_RXNE_RXFNE) {
         // Receive the data (clears the RXNE flag)
-        uint8_t data = USART1->DR;
+        uint8_t data = USART1->RDR;
     
         // If the next byte will fit into the buffer, dump it in
         if (rx_len != RXBUFFER) {
@@ -186,22 +180,22 @@ void usart1_vector()
     }
 
     // Transmitter buffer empty
-    if (USART1->SR & USART_SR_TXE) {
+    if (USART1->ISR & USART_ISR_TXE_TXFNF) {
         // End of data?
         if (tx_len == 0) {
             tx_idle = 1;
             // Must disable the TX interrupt here or else it'll be
             // an infinite loop.
-            USART1->CR1 &= ~USART_CR1_TXEIE;
+            USART1->CR1 &= ~USART_CR1_TXEIE_TXFNFIE;
+
             // The TXE flag remains set, so this interrupt will be cleared next time a byte is sent,
             // and at the same time interrupts will be re-enabled.
         } else {
             // Load up the next character from the buffer
-            USART1->DR = tx_buffer[tx_ptr++];
+            USART1->TDR = tx_buffer[tx_ptr++];
 
             tx_ptr %= TXBUFFER;
             tx_len--;
         }
-    }
-    */
+    }    
 }

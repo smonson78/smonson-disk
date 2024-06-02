@@ -48,21 +48,23 @@ void setup() {
     //A_EXTRA_2_PORT.DIRSET = A_EXTRA_2_BIT;
     //A_READY_PORT.DIRSET = A_READY_BIT;
 
-
-
     // LEDs
 
     // Put pin 13 (red LED) in general purpose push-pull mode
     RED_LED_PORT->MODER &= MODE_MASK(RED_LED_BIT);
     RED_LED_PORT->MODER |= MODE_OUTPUT(RED_LED_BIT);
+    RED_LED_PORT->OTYPER &= OTYPE_MASK(RED_LED_BIT);
 
     // Same with pin 14 (green LED)
     GREEN_LED_PORT->MODER &= MODE_MASK(GREEN_LED_BIT);
     GREEN_LED_PORT->MODER |= MODE_OUTPUT(GREEN_LED_BIT);
+    GREEN_LED_PORT->OTYPER &= OTYPE_MASK(GREEN_LED_BIT);
 
-    // Pin speed is by default, very slow (0b00)
-    //RED_LED_PORT->OSPEEDR &= OSPEED_MASK(RED_LED_BIT);
-    //RED_LED_PORT->OSPEEDR |= OSPEED_FAST(RED_LED_BIT);
+    // Pin speed to slow just to ensure they come up in a known state
+    RED_LED_PORT->OSPEEDR &= OSPEED_MASK(RED_LED_BIT);
+    RED_LED_PORT->OSPEEDR |= OSPEED_SLOW(RED_LED_BIT);
+    GREEN_LED_PORT->OSPEEDR &= OSPEED_MASK(GREEN_LED_BIT);
+    GREEN_LED_PORT->OSPEEDR |= OSPEED_SLOW(GREEN_LED_BIT);
 
     // Switch off both LED pins
     //GREEN_LED_PORT->BSRR = BSR_LOW(GREEN_LED_BIT);
