@@ -24,6 +24,7 @@
 
 #define CLOCK_RATE (F_CLK / TIMER_PRESCALER / TIMER_COUNT)
 
+extern volatile uint32_t global_ticks;
 extern volatile uint32_t ticks;
 
 void init_clock();

@@ -21,25 +21,28 @@ void sdcard_setup() {
     // Put pin in general purpose open drain mode with pull-up
     SPI_CS0_PORT->MODER &= MODE_MASK(SPI_CS0_BIT);
     SPI_CS0_PORT->MODER |= MODE_OUTPUT(SPI_CS0_BIT);
-    SPI_CS0_PORT->OTYPER &= OTYPE_MASK(SPI_CS0_BIT);
-    SPI_CS0_PORT->OTYPER |= OTYPE_OPEN_DRAIN(SPI_CS0_BIT);
+    //SPI_CS0_PORT->OTYPER &= OTYPE_MASK(SPI_CS0_BIT);
+    //SPI_CS0_PORT->OTYPER |= OTYPE_OPEN_DRAIN(SPI_CS0_BIT);
+
     SPI_CS0_PORT->OSPEEDR &= OSPEED_MASK(SPI_CS0_BIT);
     SPI_CS0_PORT->OSPEEDR |= OSPEED_SLOW(SPI_CS0_BIT);
-    SPI_CS0_PORT->PUPDR &= PUPD_MASK(SPI_CS0_BIT);
-    SPI_CS0_PORT->PUPDR |= PUPD_PULLUP(SPI_CS0_BIT);
+    //SPI_CS0_PORT->PUPDR &= PUPD_MASK(SPI_CS0_BIT);
+    //SPI_CS0_PORT->PUPDR |= PUPD_PULLUP(SPI_CS0_BIT);
 
     // Card 1 CS - output on PA10
     // Put pin in general purpose open drain mode with pull-up
     SPI_CS1_PORT->MODER &= MODE_MASK(SPI_CS1_BIT);
     SPI_CS1_PORT->MODER |= MODE_OUTPUT(SPI_CS1_BIT);
-    SPI_CS1_PORT->OTYPER &= OTYPE_MASK(SPI_CS1_BIT);
-    SPI_CS1_PORT->OTYPER |= OTYPE_OPEN_DRAIN(SPI_CS1_BIT);
+    //SPI_CS1_PORT->OTYPER &= OTYPE_MASK(SPI_CS1_BIT);
+    //SPI_CS1_PORT->OTYPER |= OTYPE_OPEN_DRAIN(SPI_CS1_BIT);
     SPI_CS1_PORT->OSPEEDR &= OSPEED_MASK(SPI_CS1_BIT);
     SPI_CS1_PORT->OSPEEDR |= OSPEED_SLOW(SPI_CS1_BIT);
-    SPI_CS1_PORT->PUPDR &= PUPD_MASK(SPI_CS1_BIT);
-    SPI_CS1_PORT->PUPDR |= PUPD_PULLUP(SPI_CS1_BIT);
+    //SPI_CS1_PORT->PUPDR &= PUPD_MASK(SPI_CS1_BIT);
+    //SPI_CS1_PORT->PUPDR |= PUPD_PULLUP(SPI_CS1_BIT);
 
-    sd_unselect();
+	// Turn both chip selects OFF 
+    SPI_CS0_PORT->BSRR = BSR_HIGH(SPI_CS0_BIT);
+    SPI_CS1_PORT->BSRR = BSR_HIGH(SPI_CS1_BIT);
 }
 
 void sd_select(uint8_t bus_id) {
@@ -50,7 +53,7 @@ void sd_select(uint8_t bus_id) {
 	// Chip select ON (low). Use correct output signal for selected card, 0 or 1.
     switch(bus_id) {
         case 0:
-            debug("Selecting card");
+            //debug("Selecting card");
             SPI_CS0_PORT->BSRR = BSR_LOW(SPI_CS0_BIT);
             break;
         case 1:
@@ -76,7 +79,7 @@ void sd_unselect() {
     SPI_CS0_PORT->BSRR = BSR_HIGH(SPI_CS0_BIT);
     SPI_CS1_PORT->BSRR = BSR_HIGH(SPI_CS1_BIT);
 
-    debug("Unselecting card");
+    //debug("Unselecting card");
 
     // Give SD card time to recognise CS has changed
     spi_start();
@@ -426,6 +429,9 @@ void sdcard_init(sdcard_state_t *sdcard) {
         spi_transfer(0xff);
     }
     sd_unselect();
+
+    debug("SD card init 2");
+
 
     // Ask the card to wake up and go idle in SPI mode
     attempts = 0;

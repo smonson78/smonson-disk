@@ -5,8 +5,8 @@
 
 #include "stdutil.h"
 
-#define CLOCK_PORT 0
-#define CLOCK_PIN _BV(1)
+#define CLOCK_PORT GPIOD
+#define CLOCK_PIN 2
 
 #define MCP7951_READ 0b00010011
 #define MCP7951_WRITE 0b00010010

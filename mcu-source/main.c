@@ -102,9 +102,6 @@ int main() {
     RCC->APBRSTR2 |= RCC_APBRSTR2_USART1RST;
     RCC->APBRSTR2 &= ~RCC_APBRSTR2_USART1RST;
 
-    // Reset SPI
-    RCC->APBRSTR2 |= RCC_APBRSTR2_SPI1RST;
-
     // Setup device pins
     setup();
 
@@ -120,59 +117,43 @@ int main() {
     init_clock();
 
     debug("\n\r\n\r\n\r-- Startup");
+    _delay_ms(50);
 
     // Setup SPI pins
     spi_setup();
-    //sdcard_setup();
-    //rtc_setup();
+    sdcard_setup();
+    rtc_setup();
 
     debug("Setup done");
     // Settle down for a bit
     _delay_ms(10);
 
     debug("After 1st delay");
-    //datetime_t datetime;
-    //rtc_get(&datetime);
-
-    // TODO: Print datetime for console here instead of in rtc_read
+    datetime_t datetime;
+    datetime.year = 2000;
+    datetime.month = 3;
+    datetime.day = 3;
+    datetime.hour = 3;
+    datetime.minute = 3;
+    datetime.second = 3;
+    //rtc_set(&datetime);
 
     // Flash both lights to indicate startup
+    /*
     for (uint8_t i = 0; i < 2; i++) {
         red_led_on();
         green_led_on();
-        _delay_ms(250);
+        _delay_ms(100);
 
         red_led_off();
         green_led_off();
-        _delay_ms(250);
+        _delay_ms(100);
     }
 
     debug("Lights flashed");
-
-    //sdcard_init();
-
-    // Apparently this is enabled by default.
-    //__enable_irq();
-
-    while (1) {
-        green_led_on();
-        //red_led_off();
-
-        _delay_ms(500);
-
-        green_led_off();
-        //red_led_on();
-
-        _delay_ms(500);
-
-        debug_nocr("Time: ");
-        debug_decimal(get_clock());
-        debug("");
-
-    }
+    */
 
 #if 0
-    
     // Reset FPGA registers to default
     // This sets command mode, and ACSI bus direction IN
     extra_data_byte = EXTRA_BYTE_DEFAULT;
@@ -184,6 +165,7 @@ int main() {
     clear_ready();
     set_data_in();
     strobe_cs(); // Ensures CS is deasserted (afterwards)
+#endif
 
     // Set defaults for SD cards
     sdcard_defaults(&sdcards[0], 0);
@@ -202,7 +184,114 @@ int main() {
 
     // Now turn debug down until requested
     debug_level = 5;
-    
+
+
+                    //debug("SD card 1 inserted");
+                    sdcards[0].detected = 1;
+                    sdcard_init(&sdcards[0]);
+    spi_fast();
+
+    while (1) {
+        green_led_on();
+        //rtc_get(&datetime);
+
+        _delay_ms(500);
+
+        uint32_t time = global_ticks;
+
+        // Read SD block
+        sd_select(0);
+        sd_command(SD_CMD_18_MULTIPLE_BLOCK_READ, 0);
+        uint8_t result = sd_response_r1();
+        // If a reply was received
+        if (result != 0xff) {
+
+
+            for (uint16_t i = 0; i < 2048; i++) {
+
+                // Wait for card to be ready to send data. It will send 0xff while it's preparing
+                result = wait_spi_response(100, 0xff);
+                if (result == 0xff) {
+                    sd_unselect();
+                    debug("*** ERR SD timeout reading blk 0");
+                    continue;
+                }            
+
+                if (result == SD_CMD_BLOCK_READY_TOKEN) {
+                    // Go!
+
+                    // Switch to buffered SPI mode
+                    //SPI.CTRLA &= ~SPI_ENABLE_bm;
+                    //SPI.CTRLB |= SPI_BUFEN_bm;
+                    //SPI.CTRLA |= SPI_ENABLE_bm;
+
+                    // Start 2-way SPI data transmission from the SD card by writing two dummy values
+                    spi_start();
+                    spi_start();
+
+                    for (uint16_t byte = 0; byte < 510; byte++) {
+                        // Then send the value
+                        spi_in_nowait();
+                        // Keep the SPI transfer going for the next byte
+                        spi_start();
+                    }
+
+                    // Then the last 2
+                    spi_in_nowait();
+                    spi_in_nowait();
+
+                    // disable buffered mode
+                    //SPI.CTRLA &= ~SPI_ENABLE_bm;
+                    //SPI.CTRLB &= ~SPI_BUFEN_bm;
+                    //SPI.CTRLA |= SPI_ENABLE_bm;
+                
+                    // Read the unused CRC field (we don't have time to calculate this)
+                    spi_transfer(0xff);
+                    spi_transfer(0xff);
+                } else {
+                    debug("No ready token?");
+                }
+            }
+
+            // Send the Stop Transfer command
+            sd_command(SD_CMD_12_STOP_TRANSMISSION, 0);
+
+            // Throw away one byte to give the card time to stop
+            spi_transfer(0xff);
+
+            // Now the real result
+            result = sd_response_r1b();                
+
+            while (spi_transfer(0xff) != 0xff) {
+                // Card holds D0 low while busy
+            }
+
+        } else {
+            debug("*** ERR invalid resp from CMD17 reading blk 0");
+        }
+
+        sd_unselect();
+       
+       debug_nocr("Read 1MB block in ");
+       debug_decimal(global_ticks - time);
+       debug("ms");
+
+        //uint8_t temp;
+        //rtc_read(4, &temp, 1);
+        //debug_nocr("read: ");
+        //debug_hex(temp, 2);
+        //debug("");
+
+        green_led_off();
+        _delay_ms(250);
+
+        //debug_nocr("Time: ");
+        //debug_decimal(get_clock());
+        //debug("");
+    }
+
+
+#if 0    
     // Wait to read data
     set_data_in();
 

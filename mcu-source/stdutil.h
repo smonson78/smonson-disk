@@ -20,7 +20,7 @@
 #define OTYPE_POS(p) (p)
 #define OTYPE_MASK(p) (~(0b1 << OTYPE_POS(p)))
 // Push-pull is default (0)
-#define OTYPE_OPEN_DRAIN(p) (~(0b1 << OTYPE_POS(p)))
+#define OTYPE_OPEN_DRAIN(p) (0b1 << OTYPE_POS(p))
 
 #define PUPD_POS(p) (p * 2)
 #define PUPD_MASK(p) (~(0b11 << PUPD_POS(p)))

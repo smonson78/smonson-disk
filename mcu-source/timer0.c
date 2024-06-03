@@ -5,11 +5,13 @@
 #include "debug.h"
 
 // clock
+volatile uint32_t global_ticks;
 volatile uint32_t ticks;
 
 // Overflow interrupt vector - don't need this for Arm Cortex
 __attribute__((interrupt ("isr")))
 void systick_vector() {
+	global_ticks++;
 	ticks++;
 }
 

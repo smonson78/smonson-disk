@@ -19,17 +19,16 @@ AS=arm-none-eabi-as
 OBJCOPY=arm-none-eabi-objcopy
 OBJDUMP=arm-none-eabi-objdump
 
-STFLASH=st-flash --freq=480k
+STFLASH=st-flash --freq=1000k
 
 INCLUDE_PATHS=-I$(CUBE)/Drivers/CMSIS/Device/ST/$(FAMILY)/Include -I$(CUBE)/Drivers/CMSIS/Include
-CFLAGS=-g -Wall -mcpu=$(MCPU) -mthumb --specs=picolibc.specs -DF_CLK=$(FCLK) \
+CFLAGS=-g -Wall -O3 -mcpu=$(MCPU) -mthumb --specs=picolibc.specs -DF_CLK=$(FCLK) \
 	-DF_PCLK=$(PCLK) -DF_HCLK=$(HCLK) -D$(DEVICE) $(INCLUDE_PATHS)
 LDFLAGS=-mcpu=$(MCPU) --specs=picolibc.specs -Tlinker.ld
 LDLIBS=
 
 TARGET=hdd
-#OBJS=debug.o fpga_comm.o serial.o sdcard.o spi.o rtc.o timer0.o int.o
-OBJS=debug.o fpga_comm.o serial.o sdcard.o spi.o timer0.o int.o
+OBJS=debug.o fpga_comm.o serial.o sdcard.o spi.o rtc.o timer0.o int.o
 
 $(TARGET).bin: $(TARGET).elf
 	$(OBJCOPY) -j .init -j .text -j .data -O binary $^ $@
