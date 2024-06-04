@@ -9,47 +9,68 @@ uint8_t extra_data_byte = EXTRA_BYTE_DEFAULT;
 // 0 = in
 uint8_t bus_direction = 0;
 
-#if 0
 // Change direction of AVR data bus
 void set_data_in() {
     // Set data bus to input
-    //DATA_PORT.DIR = 0;
+    DATA_PORT->MODER &= DATA_PORT_MASK;
 
     // Set data direction pin (low = in)
-    //BUSDIR_PORT.OUTCLR = BUSDIR_BIT;
+    BUSDIR_PORT->BSRR = BSR_LOW(BUSDIR_BIT);
     bus_direction = 0;
 }
 
 // Change direction of AVR data bus
 void set_data_out() {
     // Set data direction pin (high = out)
-    //BUSDIR_PORT.OUTSET = BUSDIR_BIT;
+    BUSDIR_PORT->BSRR = BSR_HIGH(BUSDIR_BIT);
 
     // Set data bus to output
-    //DATA_PORT.DIR = 0xff;
+    DATA_PORT->MODER &= DATA_PORT_MASK;
+    DATA_PORT->MODER |= MODE_OUTPUT(0) | MODE_OUTPUT(1) | MODE_OUTPUT(2) | MODE_OUTPUT(3) 
+        | MODE_OUTPUT(4) | MODE_OUTPUT(5) | MODE_OUTPUT(6) | MODE_OUTPUT(7);
 
     bus_direction = 1;
 }
-#endif
 
 void setup() {
     // Bus direction selector (default: low which is FPGA -> arduino)
-    //BUSDIR_PORT.DIRSET = BUSDIR_BIT;
+    BUSDIR_PORT->MODER &= MODE_MASK(BUSDIR_BIT);
+    BUSDIR_PORT->MODER |= MODE_OUTPUT(BUSDIR_BIT);
+    BUSDIR_PORT->OTYPER &= OTYPE_MASK(BUSDIR_BIT);
+    BUSDIR_PORT->OSPEEDR &= OSPEED_MASK(BUSDIR_BIT);
+    BUSDIR_PORT->OSPEEDR |= OSPEED_VFAST(BUSDIR_BIT);    
+    set_data_in();
 
-    //set_data_in();
-
-    // FPGA interrupt - A_INT - is an input so no config needed
+    // FPGA interrupt - A_INT (input)
+    A_INT_PORT->MODER &= MODE_MASK(A_INT_BIT);
 
     // CS (ACSI) - out
-    //A_CS_PORT.DIRSET = A_CS_BIT;
+    A_CS_PORT->MODER &= MODE_MASK(A_CS_BIT);
+    A_CS_PORT->MODER |= MODE_OUTPUT(A_CS_BIT);
+    A_CS_PORT->OTYPER &= OTYPE_MASK(A_CS_BIT);
+    A_CS_PORT->OSPEEDR &= OSPEED_MASK(A_CS_BIT);
+    A_CS_PORT->OSPEEDR |= OSPEED_VFAST(A_CS_BIT);       
 
-    // A_EXTRA, A_READY - outputs
-    //A_EXTRA_PORT.DIRSET = A_EXTRA_BIT;
-    //A_EXTRA_2_PORT.DIRSET = A_EXTRA_2_BIT;
-    //A_READY_PORT.DIRSET = A_READY_BIT;
+    // A_EXTRA, A_EXTRA2, A_READY - outputs
+    A_EXTRA_PORT->MODER &= MODE_MASK(A_EXTRA_BIT);
+    A_EXTRA_PORT->MODER |= MODE_OUTPUT(A_EXTRA_BIT);
+    A_EXTRA_PORT->OTYPER &= OTYPE_MASK(A_EXTRA_BIT);
+    A_EXTRA_PORT->OSPEEDR &= OSPEED_MASK(A_EXTRA_BIT);
+    A_EXTRA_PORT->OSPEEDR |= OSPEED_VFAST(A_EXTRA_BIT); 
+
+    A_EXTRA_2_PORT->MODER &= MODE_MASK(A_EXTRA_2_BIT);
+    A_EXTRA_2_PORT->MODER |= MODE_OUTPUT(A_EXTRA_2_BIT);
+    A_EXTRA_2_PORT->OTYPER &= OTYPE_MASK(A_EXTRA_2_BIT);
+    A_EXTRA_2_PORT->OSPEEDR &= OSPEED_MASK(A_EXTRA_2_BIT);
+    A_EXTRA_2_PORT->OSPEEDR |= OSPEED_VFAST(A_EXTRA_2_BIT); 
+
+    A_READY_PORT->MODER &= MODE_MASK(A_READY_BIT);
+    A_READY_PORT->MODER |= MODE_OUTPUT(A_READY_BIT);
+    A_READY_PORT->OTYPER &= OTYPE_MASK(A_READY_BIT);
+    A_READY_PORT->OSPEEDR &= OSPEED_MASK(A_READY_BIT);
+    A_READY_PORT->OSPEEDR |= OSPEED_VFAST(A_READY_BIT); 
 
     // LEDs
-
     // Put pin 13 (red LED) in general purpose push-pull mode
     RED_LED_PORT->MODER &= MODE_MASK(RED_LED_BIT);
     RED_LED_PORT->MODER |= MODE_OUTPUT(RED_LED_BIT);
@@ -60,31 +81,35 @@ void setup() {
     GREEN_LED_PORT->MODER |= MODE_OUTPUT(GREEN_LED_BIT);
     GREEN_LED_PORT->OTYPER &= OTYPE_MASK(GREEN_LED_BIT);
 
-    // Pin speed to slow just to ensure they come up in a known state
+    // Slow speed is fine
     RED_LED_PORT->OSPEEDR &= OSPEED_MASK(RED_LED_BIT);
     RED_LED_PORT->OSPEEDR |= OSPEED_SLOW(RED_LED_BIT);
     GREEN_LED_PORT->OSPEEDR &= OSPEED_MASK(GREEN_LED_BIT);
     GREEN_LED_PORT->OSPEEDR |= OSPEED_SLOW(GREEN_LED_BIT);
 
     // Switch off both LED pins
-    //GREEN_LED_PORT->BSRR = BSR_LOW(GREEN_LED_BIT);
     red_led_off();
     green_led_off();
 
-    // No pullups, slew rate limit, or inversions on data pins
-    //DATA_PORT.PINCONFIG = 0;
-    //DATA_PORT.PINCTRLUPD = 0xff;
+    // Data pins PORTA0-PORTA7
+    // Speed: very fast
+    DATA_PORT->OSPEEDR |= OSPEED_VFAST(0) | OSPEED_VFAST(1) | OSPEED_VFAST(2) | OSPEED_VFAST(3) 
+        | OSPEED_VFAST(4) | OSPEED_VFAST(5) | OSPEED_VFAST(6) | OSPEED_VFAST(7);
 
-    // Enable pull-ups on SD card detect lines
-    //SDCARD0_DETECT_PORT.PINCONFIG = PORT_PULLUPEN_bm;
-    //SDCARD0_DETECT_PORT.PINCTRLUPD = SDCARD0_DETECT_BIT;
-    //SDCARD1_DETECT_PORT.PINCONFIG = PORT_PULLUPEN_bm;
-    //SDCARD1_DETECT_PORT.PINCTRLUPD = SDCARD1_DETECT_BIT;
-    //SDCARD1_WP_PORT.PINCONFIG = PORT_PULLUPEN_bm;
-    //SDCARD1_WP_PORT.PINCTRLUPD = SDCARD1_WP_BIT;
+    // Enable input mode, pull-ups on SD card detect lines
+    SDCARD0_DETECT_PORT->MODER &= MODE_MASK(SDCARD0_DETECT_BIT);
+    SDCARD0_DETECT_PORT->PUPDR &= PUPD_MASK(SDCARD0_DETECT_BIT);
+    SDCARD0_DETECT_PORT->PUPDR |= PUPD_PULLUP(SDCARD0_DETECT_BIT);
+
+    SDCARD1_DETECT_PORT->MODER &= MODE_MASK(SDCARD1_DETECT_BIT);
+    SDCARD1_DETECT_PORT->PUPDR &= PUPD_MASK(SDCARD1_DETECT_BIT);
+    SDCARD1_DETECT_PORT->PUPDR |= PUPD_PULLUP(SDCARD1_DETECT_BIT);
+
+    SDCARD1_WP_PORT->MODER &= MODE_MASK(SDCARD1_WP_BIT);
+    SDCARD1_WP_PORT->PUPDR &= PUPD_MASK(SDCARD1_WP_BIT);
+    SDCARD1_WP_PORT->PUPDR |= PUPD_PULLUP(SDCARD1_WP_BIT);
 }
 
-#if 0
 uint8_t get_cmd() {
     //return A_CMD_PORT.IN & A_CMD_BIT;
     return 0;
@@ -130,19 +155,19 @@ void set_data_mode() {
 }
 
 void set_extra_data() {
-    //A_EXTRA_PORT.OUTSET = A_EXTRA_BIT;
+    A_EXTRA_PORT->BSRR = BSR_HIGH(A_EXTRA_BIT);
 }
 
 void clear_extra_data() {
-    //A_EXTRA_PORT.OUTCLR = A_EXTRA_BIT;
+    A_EXTRA_PORT->BSRR = BSR_LOW(A_EXTRA_BIT);
 }
 
 void set_extra2_data() {
-    //A_EXTRA_2_PORT.OUTSET = A_EXTRA_2_BIT;
+    A_EXTRA_2_PORT->BSRR = BSR_HIGH(A_EXTRA_2_BIT);
 }
 
 void clear_extra2_data() {
-    //A_EXTRA_2_PORT.OUTCLR = A_EXTRA_2_BIT;
+    A_EXTRA_2_PORT->BSRR = BSR_LOW(A_EXTRA_2_BIT);
 }
 
 // Flush the extra data byte to the FPGA to update its config.
@@ -191,7 +216,6 @@ void set_acsi_ids(uint8_t ids) {
         set_data_in();
     }
 }
-#endif
 
 void green_led_on() {
     GREEN_LED_PORT->BSRR = BSR_HIGH(GREEN_LED_BIT);
@@ -209,7 +233,6 @@ void red_led_off() {
     RED_LED_PORT->BSRR = BSR_LOW(RED_LED_BIT);
 }
 
-#if 0
 // The last operation of any command response
 void send_status(uint8_t status) {
     debug_nocr("STATUS: ");
@@ -226,4 +249,15 @@ void send_status(uint8_t status) {
     // Go back to command/read
     set_data_in();
 }
-#endif
+
+uint_fast8_t sdcard0_present() {
+    return SDCARD0_DETECT_PORT->IDR & _BV(SDCARD0_DETECT_BIT) ? 0 : 1;
+}
+
+uint_fast8_t sdcard1_present() {
+    return SDCARD1_DETECT_PORT->IDR & _BV(SDCARD1_DETECT_BIT) ? 0 : 1;
+}
+
+uint_fast8_t sdcard1_write_protected() {
+    return SDCARD1_WP_PORT->IDR & _BV(SDCARD1_WP_BIT) ? 0 : 1;
+}

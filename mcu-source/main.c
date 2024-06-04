@@ -37,7 +37,6 @@ void clk_48MHz() {
 }
 
 void set_acsi_id_mask() {
-    /*
     uint8_t acsi_id_mask = 0;
     if (logical_drive[0].sdcard->usable) {
         acsi_id_mask |= (1 << logical_drive[0].acsi_id);
@@ -49,7 +48,6 @@ void set_acsi_id_mask() {
     debug_hex(acsi_id_mask, 2);
     debug("");
     set_acsi_ids(acsi_id_mask);
-    */
 }
 
 int main() {
@@ -128,18 +126,7 @@ int main() {
     // Settle down for a bit
     _delay_ms(10);
 
-    debug("After 1st delay");
-    datetime_t datetime;
-    datetime.year = 2000;
-    datetime.month = 3;
-    datetime.day = 3;
-    datetime.hour = 3;
-    datetime.minute = 3;
-    datetime.second = 3;
-    //rtc_set(&datetime);
-
     // Flash both lights to indicate startup
-    /*
     for (uint8_t i = 0; i < 2; i++) {
         red_led_on();
         green_led_on();
@@ -151,9 +138,7 @@ int main() {
     }
 
     debug("Lights flashed");
-    */
 
-#if 0
     // Reset FPGA registers to default
     // This sets command mode, and ACSI bus direction IN
     extra_data_byte = EXTRA_BYTE_DEFAULT;
@@ -165,7 +150,6 @@ int main() {
     clear_ready();
     set_data_in();
     strobe_cs(); // Ensures CS is deasserted (afterwards)
-#endif
 
     // Set defaults for SD cards
     sdcard_defaults(&sdcards[0], 0);
@@ -185,126 +169,21 @@ int main() {
     // Now turn debug down until requested
     debug_level = 5;
 
-
-                    //debug("SD card 1 inserted");
-                    sdcards[0].detected = 1;
-                    sdcard_init(&sdcards[0]);
     spi_fast();
 
-    while (1) {
-        green_led_on();
-        //rtc_get(&datetime);
-
-        _delay_ms(500);
-
-        uint32_t time = global_ticks;
-
-        // Read SD block
-        sd_select(0);
-        sd_command(SD_CMD_18_MULTIPLE_BLOCK_READ, 0);
-        uint8_t result = sd_response_r1();
-        // If a reply was received
-        if (result != 0xff) {
-
-
-            for (uint16_t i = 0; i < 2048; i++) {
-
-                // Wait for card to be ready to send data. It will send 0xff while it's preparing
-                result = wait_spi_response(100, 0xff);
-                if (result == 0xff) {
-                    sd_unselect();
-                    debug("*** ERR SD timeout reading blk 0");
-                    continue;
-                }            
-
-                if (result == SD_CMD_BLOCK_READY_TOKEN) {
-                    // Go!
-
-                    // Switch to buffered SPI mode
-                    //SPI.CTRLA &= ~SPI_ENABLE_bm;
-                    //SPI.CTRLB |= SPI_BUFEN_bm;
-                    //SPI.CTRLA |= SPI_ENABLE_bm;
-
-                    // Start 2-way SPI data transmission from the SD card by writing two dummy values
-                    spi_start();
-                    spi_start();
-
-                    for (uint16_t byte = 0; byte < 510; byte++) {
-                        // Then send the value
-                        spi_in_nowait();
-                        // Keep the SPI transfer going for the next byte
-                        spi_start();
-                    }
-
-                    // Then the last 2
-                    spi_in_nowait();
-                    spi_in_nowait();
-
-                    // disable buffered mode
-                    //SPI.CTRLA &= ~SPI_ENABLE_bm;
-                    //SPI.CTRLB &= ~SPI_BUFEN_bm;
-                    //SPI.CTRLA |= SPI_ENABLE_bm;
-                
-                    // Read the unused CRC field (we don't have time to calculate this)
-                    spi_transfer(0xff);
-                    spi_transfer(0xff);
-                } else {
-                    debug("No ready token?");
-                }
-            }
-
-            // Send the Stop Transfer command
-            sd_command(SD_CMD_12_STOP_TRANSMISSION, 0);
-
-            // Throw away one byte to give the card time to stop
-            spi_transfer(0xff);
-
-            // Now the real result
-            result = sd_response_r1b();                
-
-            while (spi_transfer(0xff) != 0xff) {
-                // Card holds D0 low while busy
-            }
-
-        } else {
-            debug("*** ERR invalid resp from CMD17 reading blk 0");
-        }
-
-        sd_unselect();
-       
-       debug_nocr("Read 1MB block in ");
-       debug_decimal(global_ticks - time);
-       debug("ms");
-
-        //uint8_t temp;
-        //rtc_read(4, &temp, 1);
-        //debug_nocr("read: ");
-        //debug_hex(temp, 2);
-        //debug("");
-
-        green_led_off();
-        _delay_ms(250);
-
-        //debug_nocr("Time: ");
-        //debug_decimal(get_clock());
-        //debug("");
-    }
-
-
-#if 0    
     // Wait to read data
     set_data_in();
 
     while (1) {
 
-        uint8_t is_cmd;
-        uint8_t cmd_byte;
+        uint8_t is_cmd = 0;
+        uint8_t cmd_byte = 0;
+
         set_data_in();
         do {
             // Wait for A_INT
             while (get_int() == 0) {
                 // Check if debug level was changed by typing 0-9 on the serial port
-                /*
                 int16_t serial_in = serial_receive_nowait();
                 if (serial_in >= 0) {
                     if (serial_in >= '0' && serial_in <= '9') {
@@ -314,17 +193,15 @@ int main() {
                         serial_send_progmem(PSTR("\r\n"));
                     }
                 }
-                */
 
-                /*
                 // Check if SD cards were removed
-                if (sdcards[0].detected && (SDCARD0_DETECT_PORT.IN & SDCARD0_DETECT_BIT)) {
+                if (sdcards[0].detected && !sdcard0_present()) {
                     debug("SD card 0 removed");
                     sdcard_defaults(&sdcards[0], 0);
                     logical_drive[0].media_changed = 1;
                     set_acsi_id_mask();
                 }
-                if (sdcards[1].detected && (SDCARD1_DETECT_PORT.IN & SDCARD1_DETECT_BIT)) {
+                if (sdcards[1].detected && !sdcard1_present()) {
                     debug("SD card 1 removed");
                     sdcard_defaults(&sdcards[1], 1);
                     logical_drive[1].media_changed = 1;
@@ -332,26 +209,24 @@ int main() {
                 }
 
                 // Check if SD cards were inserted
-                if (sdcards[0].detected == 0 && (SDCARD0_DETECT_PORT.IN & SDCARD0_DETECT_BIT) == 0) {
+                if (sdcards[0].detected == 0 && sdcard0_present()) {
                     debug("SD card 0 inserted");
                     sdcards[0].detected = 1;
                     sdcard_init(&sdcards[0]);
                     logical_drive[0].media_changed = 1;
                     set_acsi_id_mask();
                 }
-                if (sdcards[1].detected == 0 && (SDCARD1_DETECT_PORT.IN & SDCARD1_DETECT_BIT) == 0) {
+                if (sdcards[1].detected == 0 && sdcard1_present()) {
                     debug("SD card 1 inserted");
                     sdcards[1].detected = 1;
                     sdcard_init(&sdcards[1]);
                     logical_drive[1].media_changed = 1;
                     set_acsi_id_mask();
                 }
-                */
             }
 
             // Pick up byte from data bus and A_CMD pin
-            // TODO
-            //is_cmd = A_CMD_PORT.IN & A_CMD_BIT;
+            is_cmd = A_CMD_PORT->IDR & _BV(A_CMD_BIT) ? 1 : 0;
             cmd_byte = read_data_port();
 
             strobe_cs();
@@ -361,9 +236,9 @@ int main() {
         uint8_t acsi_device = cmd_byte >> 5;
         acsi_opcode_t opcode = cmd_byte & 0x1f;
 
-        // Clock rate is 100Hz. Find command phase timeout length of 250ms in ticks 
-        uint32_t target_time = 3000L / (1000 / CLOCK_RATE);
-        start_clock();
+        // Find command phase timeout length of 250ms in ticks 
+        uint32_t start_time = get_clock();
+        uint32_t target_time = start_time + 250;
 
         // Work out which device was selected from the ACSI ID of the command byte
         logical_drive_t* selected_device;
@@ -518,7 +393,6 @@ int main() {
         write_extra_byte();
         extra_data_byte &= 0b10111110;
     }
-#endif
 
     return 0;
 }

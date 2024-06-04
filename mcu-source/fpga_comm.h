@@ -9,28 +9,29 @@
 #define DEBUG
 
 // For the AVR <==> CPLD bus
-#define BUSDIR_PORT 0
-#define BUSDIR_BIT _BV(4)
+#define BUSDIR_PORT GPIOB
+#define BUSDIR_BIT 1
 
-#define DATA_PORT 0
+#define DATA_PORT GPIOA
+#define DATA_PORT_MASK (MODE_MASK(0) & MODE_MASK(1) & MODE_MASK(2) & MODE_MASK(3) & MODE_MASK(4) & MODE_MASK(5) & MODE_MASK(6) & MODE_MASK(7))
 
-#define A_INT_PORT 0
-#define A_INT_BIT _BV(2)
+#define A_INT_PORT GPIOF
+#define A_INT_BIT 1
 
-#define A_CMD_PORT 0
-#define A_CMD_BIT _BV(3)
+#define A_CMD_PORT GPIOB
+#define A_CMD_BIT 2
 
-#define A_CS_PORT 0
-#define A_CS_BIT _BV(5)
+#define A_CS_PORT GPIOB
+#define A_CS_BIT 0
 
-#define A_EXTRA_PORT 0
-#define A_EXTRA_BIT _BV(0)
+#define A_EXTRA_PORT GPIOB
+#define A_EXTRA_BIT 11
 
-#define A_EXTRA_2_PORT 0
-#define A_EXTRA_2_BIT _BV(3)
+#define A_EXTRA_2_PORT GPIOB
+#define A_EXTRA_2_BIT 10
 
-#define A_READY_PORT 0
-#define A_READY_BIT _BV(1)
+#define A_READY_PORT GPIOF
+#define A_READY_BIT 0
 
 // Front panel LEDs
 #define RED_LED_PORT GPIOC
@@ -40,14 +41,14 @@
 #define GREEN_LED_BIT 13
 
 // SD card-detect
-#define SDCARD0_DETECT_PORT 0
-#define SDCARD0_DETECT_BIT _BV(1)
+#define SDCARD0_DETECT_PORT GPIOC
+#define SDCARD0_DETECT_BIT 6
 
-#define SDCARD1_DETECT_PORT 0
-#define SDCARD1_DETECT_BIT _BV(7)
+#define SDCARD1_DETECT_PORT GPIOA
+#define SDCARD1_DETECT_BIT 11
 
-#define SDCARD1_WP_PORT 0
-#define SDCARD1_WP_BIT _BV(1)
+#define SDCARD1_WP_PORT GPIOA
+#define SDCARD1_WP_BIT 12
 
 // Data bus direction:
 // HIGH: A (Arduino) --> B (Atari)
@@ -79,17 +80,16 @@ void set_data_out();
 // CLEAR - AVR is not ready
 // SET   - AVR is ready
 static inline void clear_ready() {
-    //A_READY_PORT.OUTCLR = A_READY_BIT;
+    A_READY_PORT->BSRR = BSR_LOW(A_READY_BIT);
 }
 
 static inline void set_ready() {
-    //A_READY_PORT.OUTSET = A_READY_BIT;
+    A_READY_PORT->BSRR = BSR_HIGH(A_READY_BIT);
 }
 
 // Get the value on the data bus
 static inline uint8_t read_data_port() {
-    //return DATA_PORT.IN;
-    return 0;
+    return DATA_PORT->IDR;
 }
 
 // Get the value of the A_CMD pin which is asserted by the FPGA when presenting the first byte of a new command
@@ -98,16 +98,17 @@ uint8_t get_cmd();
 
 // Get the status of the A_INT pin which is asserted by the FPGA to indicate readiness
 static inline uint8_t get_int() {
-    //return A_INT_PORT.IN & A_INT_BIT;
-    return 0;
+    return A_INT_PORT->IDR & _BV(A_INT_BIT);
 }
 
 // Raise, then lower, the A_CS signal
 //   - (when writing) - to cause the FPGA to latch the contents of the data bus
 //   - (when reading) - to cause the FPGA to see that the value on the bus has been read by the AVR
 static inline void strobe_cs() {
-    //A_CS_PORT.OUTSET = A_CS_BIT;
-    //A_CS_PORT.OUTCLR = A_CS_BIT;
+    A_CS_PORT->BSRR = BSR_HIGH(A_CS_BIT);
+    A_CS_PORT->BSRR = BSR_HIGH(A_CS_BIT);
+    A_CS_PORT->BSRR = BSR_LOW(A_CS_BIT);
+    A_CS_PORT->BSRR = BSR_LOW(A_CS_BIT);
 }
 
 // Read a byte from the FPGA
@@ -129,7 +130,8 @@ static inline uint8_t read_byte_nochecks() {
 }
 
 static inline void write_data_port(uint8_t value) {
-    //DATA_PORT.OUT = value;
+    // Write only low 8 bits
+    ((volatile uint8_t *)&DATA_PORT->ODR)[3] = value;
 }
 
 // Write a byte without requesting the next
@@ -179,5 +181,9 @@ void red_led_off();
 // Enable/disable SPI pass-through on the FPGA so that the AVR can communicate directly with it
 void enable_spi();
 void disable_spi();
+
+uint_fast8_t sdcard0_present();
+uint_fast8_t sdcard1_present();
+uint_fast8_t sdcard1_write_protected();
 
 #endif

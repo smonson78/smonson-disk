@@ -1,4 +1,3 @@
-#include <avr/pgmspace.h>
 #include "acsi.h"
 #include "fpga_comm.h"
 #include "sdcard.h"
@@ -102,9 +101,9 @@ acsi_status_t read_block(logical_drive_t *device, uint32_t addr) {
             spi_transfer(0xff);
 
 #else
-            // Switch to buffered SPI mode
+            // Switch to buffered SPI mode (it's already got a 4-byte buffer so no need)
             //SPI.CTRLA &= ~SPI_ENABLE_bm;
-            SPI.CTRLB |= SPI_BUFEN_bm;
+            //SPI.CTRLB |= SPI_BUFEN_bm;
             //SPI.CTRLA |= SPI_ENABLE_bm;
 
             // Start 2-way SPI data transmission from the SD card by writing two dummy values
@@ -124,7 +123,7 @@ acsi_status_t read_block(logical_drive_t *device, uint32_t addr) {
 
             // disable buffered mode
             //SPI.CTRLA &= ~SPI_ENABLE_bm;
-            SPI.CTRLB &= ~SPI_BUFEN_bm;
+            //SPI.CTRLB &= ~SPI_BUFEN_bm;
             //SPI.CTRLA |= SPI_ENABLE_bm;
             
             // Read the unused CRC field (we don't have time to calculate this)
@@ -278,7 +277,7 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
 #else
                 // Switch to buffered SPI mode
                 //SPI.CTRLA &= ~SPI_ENABLE_bm;
-                SPI.CTRLB |= SPI_BUFEN_bm;
+                //SPI.CTRLB |= SPI_BUFEN_bm;
                 //SPI.CTRLA |= SPI_ENABLE_bm;
 
                 // Start 2-way SPI data transmission from the SD card by writing two dummy values
@@ -329,7 +328,7 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
 
                 // disable buffered mode
                 //SPI.CTRLA &= ~SPI_ENABLE_bm;
-                SPI.CTRLB &= ~SPI_BUFEN_bm;
+                //SPI.CTRLB &= ~SPI_BUFEN_bm;
                 //SPI.CTRLA |= SPI_ENABLE_bm;
                 
                 // Read the unused CRC field (we don't have time to calculate this)
@@ -778,7 +777,7 @@ acsi_status_t acsi_mode_sense_6(logical_drive_t *device, uint8_t cmd_offset) {
   return STATUS_OK;
 }
 
-const uint8_t PROGMEM inquiry_scsi_response[36] = {
+const uint8_t inquiry_scsi_response[36] = {
     0,                                                      // Peripheral qualifier: device connected
                                                             // Peripheral type: block device
     0x80,                                                   // Removable: yes
@@ -835,7 +834,7 @@ acsi_status_t scsi_inquiry(logical_drive_t *device, uint8_t cmd_offset) {
         uint8_t buf[sizeof(inquiry_scsi_response)];
         uint8_t i;
         for (i = 0; i < sizeof(inquiry_scsi_response); i++) {
-            buf[i] = pgm_read_byte(inquiry_scsi_response + i);
+            buf[i] = inquiry_scsi_response[i];
         }
 
         // Copy the disk size into the description
