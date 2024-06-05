@@ -167,10 +167,10 @@ int main() {
     set_acsi_id_mask();
 
     // Now turn debug down until requested
-    debug_level = 5;
+    //debug_level = 0;
 
     spi_fast();
-
+    
     // Wait to read data
     set_data_in();
 
@@ -183,6 +183,7 @@ int main() {
         do {
             // Wait for A_INT
             while (get_int() == 0) {
+
                 // Check if debug level was changed by typing 0-9 on the serial port
                 int16_t serial_in = serial_receive_nowait();
                 if (serial_in >= 0) {
@@ -224,6 +225,9 @@ int main() {
                     set_acsi_id_mask();
                 }
             }
+
+            debug("Got activity");
+
 
             // Pick up byte from data bus and A_CMD pin
             is_cmd = A_CMD_PORT->IDR & _BV(A_CMD_BIT) ? 1 : 0;

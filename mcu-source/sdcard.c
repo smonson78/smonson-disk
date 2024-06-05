@@ -347,7 +347,7 @@ uint8_t sd_response() {
 
 // Wait for SPI response to not be X
 uint8_t wait_spi_response(uint8_t ms_delay, uint8_t x) {
-    uint8_t result;
+    uint8_t result = 0;
 
     // Clock rate is 100Hz
     uint32_t target_time = ((uint32_t)ms_delay) / (1000 / CLOCK_RATE);
@@ -376,7 +376,7 @@ uint8_t wait_spi_response(uint8_t ms_delay, uint8_t x) {
 
 // Wait for SPI response to be X
 uint8_t wait_spi_response2(uint8_t ms_delay, uint8_t x) {
-    uint8_t result;
+    uint8_t result = 0;
 
     // Clock rate is 100Hz
     uint32_t target_time = ((uint32_t)ms_delay) / (1000 / CLOCK_RATE);
@@ -653,6 +653,8 @@ void sdcard_init(sdcard_state_t *sdcard) {
                 sdcard->capacity *= (1 << (c_size_mult + 2));
                 sdcard->capacity *= card_block_size;
                 sdcard->capacity /= 512;
+
+                sdcard->capacity -= 256;
 
                 // FIXME: how does this work
                 /*
