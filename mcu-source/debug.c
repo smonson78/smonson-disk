@@ -5,19 +5,6 @@
 
 uint8_t debug_level = 9;
 
-void debug_nocr_fn(const char *string) {
-    if (debug_level > 0) {
-        serial_send_progmem(string);
-    }
-}
-
-void debug_fn(const char *string) {
-    if (debug_level > 0) {
-        serial_send_progmem(string);
-        serial_send_progmem("\r\n");
-    }
-}
-
 void debug_ram_nocr(char *string) {
     if (debug_level > 0) {
         serial_send(string);

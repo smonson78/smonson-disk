@@ -4,6 +4,7 @@
 #include "fpga_comm.h"
 #include "serial.h"
 #include "int.h"
+#include "timer0.h"
 
 // FIFOs on both send and receive
 volatile uint8_t rx_buffer[RXBUFFER];
@@ -95,18 +96,12 @@ void tx_char(int8_t data)
     }
                 
     // Put data into buffer
-    tx_buffer[(tx_ptr + tx_len++) % TXBUFFER] = data;
+    tx_buffer[(tx_ptr + tx_len) % TXBUFFER] = data;
+    tx_len++;
 }
 
 void serial_sendchar(int8_t data)
 {
-    // Unbuffered version:
-    //while ((USART1->ISR & USART_ISR_TXE_TXFNF) == 0) {
-        // Wait
-    //}
-    //USART1->TDR = data;
-
-#if 1
     // Wait for buffer to have room.
     while (1) {
         serial_cli();
@@ -116,10 +111,8 @@ void serial_sendchar(int8_t data)
             return;
         }
         serial_sei();
-        // TODO:
-        //_delay_ms(1);
+        _delay_ms(1);
     }
-#endif
 }
 
 // Send a bunch of characters at once
@@ -128,12 +121,6 @@ void serial_send(char *s)
     while (*s) {
         serial_sendchar(*(s++));
     }
-}
-
-void serial_send_progmem(const char *s)
-{
-    // This is more of a Harvard thing. Just call the other one.
-    serial_send((char *)s);
 }
 
 // Return character from RX buffer if available, otherwise return -1

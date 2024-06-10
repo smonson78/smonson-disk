@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 
-#define PSTR(x) 0
-
 #define DEBUG_ENABLED
 
 extern uint8_t debug_level;
@@ -20,9 +18,6 @@ extern uint8_t debug_level;
 #define debug_decimal(x) do{}while(0)
 #define debug_hex(x, y) do{}while(0)
 #endif
-
-void debug_fn(const char *string);
-void debug_nocr_fn(const char *string);
 
 void debug_ram_fn(char *string);
 void debug_ram_nocr(char *string);

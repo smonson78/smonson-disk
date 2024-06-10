@@ -189,9 +189,9 @@ int main() {
                 if (serial_in >= 0) {
                     if (serial_in >= '0' && serial_in <= '9') {
                         debug_level = serial_in - '0';
-                        serial_send_progmem(PSTR("Debug level set to: "));
+                        serial_send("Debug level set to: ");
                         serial_sendchar('0' + debug_level);
-                        serial_send_progmem(PSTR("\r\n"));
+                        serial_send("\r\n");
                     }
                 }
 
