@@ -4,7 +4,7 @@ module hdd (
 	// Atari signals
 	f_data, f_cs, f_bus_dir, f_reset, f_ack, f_a1, f_rw, f_irq, f_drq,
 	// AVR signals
-	a_reset, a_data, a_cs, a_bus_dir, a_cmd, a_int,
+	a_data, a_cs, a_bus_dir, a_cmd, a_int,
 	a_extra, a_extra_2, a_ready
 );
 
@@ -26,17 +26,12 @@ module hdd (
 	input a_cs;             // strobe high to latch input/output
     
 	// AVR<-->FPGA comms
-	output a_reset;
 	// Read/write "extra data" when set
 	input a_extra;
     input a_extra_2;
 	// AVR is waiting to receive the next byte if this signal is raised
 	input a_ready;
 	 
-	// Drive "RESET" to zero when the Atari does. Otherwise tristate it. This is here so the device could be 
-	// reset from the ST.
-	wire a_reset = f_reset ? 1'bz : 1'b0;
-
 	// Device config/status registers
 
 	// Which ACSI IDs does this device respond to?
