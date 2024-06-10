@@ -30,14 +30,11 @@ static inline void spi_wait_ready() {
 
 static inline void spi_start_with_value(uint8_t send)
 {
-	while ((SPI->SR & SPI_SR_FTLVL) == 0b11 << SPI_SR_FTLVL_Pos) {
+	while ((SPI->SR & SPI_SR_FTLVL) == SPI_SR_FTLVL) {
 		 // Wait for idle
 	}
 
-    // Must be cast to 8 bits, but that breaks it???
-    *(volatile uint8_t *)&SPI->DR = send;
-    //*((volatile uint16_t *)0x4001300c) = send;
-    //SPI->DR = send;
+    BYTE_ACCESS(SPI->DR) = send;
 }
 
 static inline void spi_start() {
@@ -48,9 +45,7 @@ static inline void spi_start() {
 static inline void spi_out_nowait(uint8_t send)
 {
 	spi_wait_ready();
-	*(volatile uint8_t *)&SPI->DR = send;
-	//*((volatile uint16_t *)0x4001300c) = send;
-	//SPI->DR = send;
+	BYTE_ACCESS(SPI->DR) = send;
 	//while(!(SPI->SR & SPI_SR_TXE)) {
 	// Wait for send to start
 	//}
@@ -59,15 +54,11 @@ static inline void spi_out_nowait(uint8_t send)
 static inline uint8_t spi_in_nowait()
 {
 	// Wait until receiver buffer is not empty
-	//debug("Waiting for receive buffer to be not empty");
 	while (!(SPI->SR & SPI_SR_RXNE)) {
 	}
-	//debug("...passed");
 
 	// Return what was received
-	return *(volatile uint8_t *)&SPI->DR;
-	//return *((volatile uint16_t *)0x4001300c);
-	//return SPI->DR;
+	return BYTE_ACCESS(SPI->DR);
 }
 
 #endif

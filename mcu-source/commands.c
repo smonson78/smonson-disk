@@ -224,6 +224,8 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
     set_data_out();
     set_data_mode();
 
+    spi_fast();
+
 #ifdef MULTI_BLOCK_READ
 
     uint32_t sd_addr = addr;
@@ -336,6 +338,7 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
                 spi_transfer(0xff);
 #endif
                 //debug("Fin xfer from card");
+                debug_nocr(".");
             }            
         }
 

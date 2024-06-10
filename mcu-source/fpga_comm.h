@@ -13,7 +13,8 @@
 #define BUSDIR_BIT 1
 
 #define DATA_PORT GPIOA
-#define DATA_PORT_MASK (MODE_MASK(0) & MODE_MASK(1) & MODE_MASK(2) & MODE_MASK(3) & MODE_MASK(4) & MODE_MASK(5) & MODE_MASK(6) & MODE_MASK(7))
+//#define DATA_PORT_MASK (MODE_MASK(0) & MODE_MASK(1) & MODE_MASK(2) & MODE_MASK(3) & MODE_MASK(4) & MODE_MASK(5) & MODE_MASK(6) & MODE_MASK(7))
+#define DATA_PORT_MASK 0xffff0000
 
 #define A_INT_PORT GPIOF
 #define A_INT_BIT 1
@@ -131,7 +132,7 @@ static inline uint8_t read_byte_nochecks() {
 
 static inline void write_data_port(uint8_t value) {
     // Write only low 8 bits
-    ((volatile uint8_t *)&DATA_PORT->ODR)[3] = value;
+    BYTE_ACCESS(DATA_PORT->ODR) = value;
 }
 
 // Write a byte without requesting the next

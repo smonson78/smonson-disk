@@ -4,9 +4,9 @@
 
 #define _BV(x) (1 << x)
 
-// TODO
-//#define _delay_ms(x) ;
-#define _delay_us(x) ;
+// Probably wrong
+#define _delay_us(x) do { for (volatile uint_fast32_t _delay_us_count = 0; \
+    _delay_us_count < x; _delay_us_count++) {} } while(0);
 
 // Conveniences for setting various registers
 #define MODE_POS(p) (p * 2)
@@ -34,5 +34,5 @@
 #define OSPEED_FAST(p) (0b10 << OSPEED_POS(p))
 #define OSPEED_VFAST(p) (0b11 << OSPEED_POS(p))
 
-
+#define BYTE_ACCESS(x) (*(volatile uint8_t *)(&x))
 #endif

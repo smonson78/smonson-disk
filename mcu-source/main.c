@@ -226,9 +226,6 @@ int main() {
                 }
             }
 
-            debug("Got activity");
-
-
             // Pick up byte from data bus and A_CMD pin
             is_cmd = A_CMD_PORT->IDR & _BV(A_CMD_BIT) ? 1 : 0;
             cmd_byte = read_data_port();

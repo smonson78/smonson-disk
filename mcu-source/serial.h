@@ -37,7 +37,6 @@ extern volatile uint8_t tx_buffer[TXBUFFER];
 void serial_init();
 void serial_sendchar(int8_t data);
 void serial_send(char *s);
-void serial_send_progmem(const char *s);
 int8_t serial_receive();
 int16_t serial_receive_nowait();
 

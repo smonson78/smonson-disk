@@ -26,8 +26,9 @@ void set_data_out() {
 
     // Set data bus to output
     DATA_PORT->MODER &= DATA_PORT_MASK;
-    DATA_PORT->MODER |= MODE_OUTPUT(0) | MODE_OUTPUT(1) | MODE_OUTPUT(2) | MODE_OUTPUT(3) 
-        | MODE_OUTPUT(4) | MODE_OUTPUT(5) | MODE_OUTPUT(6) | MODE_OUTPUT(7);
+    //DATA_PORT->MODER |= MODE_OUTPUT(0) | MODE_OUTPUT(1) | MODE_OUTPUT(2) | MODE_OUTPUT(3) 
+    //    | MODE_OUTPUT(4) | MODE_OUTPUT(5) | MODE_OUTPUT(6) | MODE_OUTPUT(7);
+    DATA_PORT->MODER |= 0x00005555;
 
     bus_direction = 1;
 }
@@ -43,6 +44,9 @@ void setup() {
 
     // FPGA interrupt - A_INT (input)
     A_INT_PORT->MODER &= MODE_MASK(A_INT_BIT);
+
+    // A_CMD
+    A_CMD_PORT->MODER &= MODE_MASK(A_CMD_BIT);
 
     // CS (ACSI) - out
     A_CS_PORT->MODER &= MODE_MASK(A_CS_BIT);
@@ -68,7 +72,10 @@ void setup() {
     A_READY_PORT->MODER |= MODE_OUTPUT(A_READY_BIT);
     A_READY_PORT->OTYPER &= OTYPE_MASK(A_READY_BIT);
     A_READY_PORT->OSPEEDR &= OSPEED_MASK(A_READY_BIT);
-    A_READY_PORT->OSPEEDR |= OSPEED_VFAST(A_READY_BIT); 
+    A_READY_PORT->OSPEEDR |= OSPEED_VFAST(A_READY_BIT);
+    clear_extra_data();
+    clear_extra2_data();
+    clear_ready();
 
     // LEDs
     // Put pin 13 (red LED) in general purpose push-pull mode
