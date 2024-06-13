@@ -2,12 +2,19 @@
 #define __SPI_H
 
 #include <stdint.h>
+#include "stdutil.h"
+#include "debug.h"
 
-#define SPI SPI0
-#define SPI_PORT PORTA
-#define SPI_PIN_MOSI _BV(4)
-#define SPI_PIN_MISO _BV(5)
-#define SPI_PIN_CLK  _BV(6)
+#define SPI SPI1
+
+#define SPI_MOSI_PORT GPIOB
+#define SPI_MOSI_BIT 5
+
+#define SPI_MISO_PORT GPIOB
+#define SPI_MISO_BIT 4
+
+#define SPI_CLK_PORT GPIOB
+#define SPI_CLK_BIT 3
 
 void spi_setup();
 uint8_t spi_transfer(uint8_t send);
@@ -16,14 +23,14 @@ void spi_slow();
 
 // Fast inlined SPI transfers
 static inline void spi_wait_ready() {
-	// Wait for SPI hardware to be idle
-	while (!(SPI.INTFLAGS & SPI_IF_bm)) {
+	// Wait for SPI transfer completed
+	while (SPI->SR & SPI_SR_BSY) {
 	}
 }
 
 static inline void spi_start_with_value(uint8_t send)
 {
-	SPI.DATA = send;
+    BYTE_ACCESS(SPI->DR) = send;
 }
 
 static inline void spi_start() {
@@ -34,14 +41,17 @@ static inline void spi_start() {
 static inline void spi_out_nowait(uint8_t send)
 {
 	spi_wait_ready();
-	SPI.DATA = send;
+	BYTE_ACCESS(SPI->DR) = send;
 }
 
 static inline uint8_t spi_in_nowait()
 {
-	spi_wait_ready();
+	// Wait until receiver buffer is not empty
+	while (!(SPI->SR & SPI_SR_RXNE)) {
+	}
+
 	// Return what was received
-	return SPI.DATA;
+	return BYTE_ACCESS(SPI->DR);
 }
 
 #endif

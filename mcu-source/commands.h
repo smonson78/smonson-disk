@@ -13,7 +13,7 @@ typedef struct {
 } logical_drive_t;
 
 // The two logical drives that are possible on this device
-logical_drive_t logical_drive[2];
+extern logical_drive_t logical_drive[2];
 
 // ACSI/SCSI commands 0 - 0x1f (6 bytes)sd_addr
 // 0x0

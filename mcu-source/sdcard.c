@@ -1,41 +1,62 @@
-#include <avr/io.h>
+#include "stm32c0xx.h"
 
 #include "sdcard.h"
 #include "timer0.h"
 #include "debug.h"
 #include "spi.h"
-#include "fpga_comm.h"
+
+#include "stdutil.h"
 
 // Card data for each card in the system
 // In this case, one internal card, and one front-facing card slot
 sdcard_state_t sdcards[2];
 
 // SD card sector buffer
-sd_sector_buffer_t sd_buffer;
+uint8_t sd_buffer[2][SD_BUFFER_SIZE];
 
 void sdcard_setup() {
 
-    // Card 0 CS - output
-    SPI_CS0_PORT.DIRSET = SPI_CS0_BIT;
+    // Card 0 CS - output on PC7
+    // Put pin in general purpose open drain mode with pull-up
+    SPI_CS0_PORT->MODER &= MODE_MASK(SPI_CS0_BIT);
+    SPI_CS0_PORT->MODER |= MODE_OUTPUT(SPI_CS0_BIT);
+    SPI_CS0_PORT->OTYPER &= OTYPE_MASK(SPI_CS0_BIT);
+    SPI_CS0_PORT->OTYPER |= OTYPE_OPEN_DRAIN(SPI_CS0_BIT);
 
-    // Card 1 CS - output
-    SPI_CS1_PORT.DIRSET = SPI_CS1_BIT;
+    SPI_CS0_PORT->OSPEEDR &= OSPEED_MASK(SPI_CS0_BIT);
+    SPI_CS0_PORT->OSPEEDR |= OSPEED_SLOW(SPI_CS0_BIT);
+    SPI_CS0_PORT->PUPDR &= PUPD_MASK(SPI_CS0_BIT);
+    SPI_CS0_PORT->PUPDR |= PUPD_PULLUP(SPI_CS0_BIT);
 
-    sd_unselect();
+    // Card 1 CS - output on PA10
+    // Put pin in general purpose open drain mode with pull-up
+    SPI_CS1_PORT->MODER &= MODE_MASK(SPI_CS1_BIT);
+    SPI_CS1_PORT->MODER |= MODE_OUTPUT(SPI_CS1_BIT);
+    SPI_CS1_PORT->OTYPER &= OTYPE_MASK(SPI_CS1_BIT);
+    SPI_CS1_PORT->OTYPER |= OTYPE_OPEN_DRAIN(SPI_CS1_BIT);
+    SPI_CS1_PORT->OSPEEDR &= OSPEED_MASK(SPI_CS1_BIT);
+    SPI_CS1_PORT->OSPEEDR |= OSPEED_SLOW(SPI_CS1_BIT);
+    SPI_CS1_PORT->PUPDR &= PUPD_MASK(SPI_CS1_BIT);
+    SPI_CS1_PORT->PUPDR |= PUPD_PULLUP(SPI_CS1_BIT);
+
+	// Turn both chip selects OFF 
+    SPI_CS0_PORT->BSRR = BSR_HIGH(SPI_CS0_BIT);
+    SPI_CS1_PORT->BSRR = BSR_HIGH(SPI_CS1_BIT);
 }
 
 void sd_select(uint8_t bus_id) {
     // Give SD card time to finish whatever it's doing
-    spi_start();
+    spi_transfer(0xff);
     spi_wait_ready();
-
+    
 	// Chip select ON (low). Use correct output signal for selected card, 0 or 1.
     switch(bus_id) {
         case 0:
-            SPI_CS0_PORT.OUTCLR = SPI_CS0_BIT;
+            //debug("Selecting card");
+            SPI_CS0_PORT->BSRR = BSR_LOW(SPI_CS0_BIT);
             break;
         case 1:
-            SPI_CS1_PORT.OUTCLR = SPI_CS1_BIT;
+            SPI_CS1_PORT->BSRR = BSR_LOW(SPI_CS1_BIT);
             break;
         default:
             debug_nocr("Non-existent bus ID selected: ");
@@ -44,21 +65,23 @@ void sd_select(uint8_t bus_id) {
     }
 
     // Give SD card time to recognise CS has changed
-    spi_start();
+    spi_transfer(0xff);
     spi_wait_ready();
 }
 
 void sd_unselect() {
     // Give SD card some clock cycles to finish whatever it's doing
-    spi_start();
+    spi_transfer(0xff);
     spi_wait_ready();
 
 	// Turn both chip selects OFF 
-    SPI_CS0_PORT.OUTSET = SPI_CS0_BIT;
-    SPI_CS1_PORT.OUTSET = SPI_CS1_BIT;
+    SPI_CS0_PORT->BSRR = BSR_HIGH(SPI_CS0_BIT);
+    SPI_CS1_PORT->BSRR = BSR_HIGH(SPI_CS1_BIT);
+
+    //debug("Unselecting card");
 
     // Give SD card time to recognise CS has changed
-    spi_start();
+    spi_transfer(0xff);
     spi_wait_ready();
 }
 
@@ -87,11 +110,10 @@ void sd_command(uint8_t cmd, uint32_t arg)
 {
     uint8_t buf[5];
 
-    if (debug_level > 5) {
-        debug_nocr("SD CMD");
-        debug_decimal(cmd);
-        debug("");
-    }
+    debug_nocr("SD CMD");
+    debug_decimal(cmd);
+    debug("");
+
     buf[0] = cmd | SD_CMD_TRANSMISSION_BIT;
     buf[1] = (uint8_t)(arg >> 24);
     buf[2] = (uint8_t)(arg >> 16);
@@ -324,13 +346,13 @@ uint8_t sd_response() {
 
 // Wait for SPI response to not be X
 uint8_t wait_spi_response(uint8_t ms_delay, uint8_t x) {
-    uint8_t result;
+    uint8_t result = 0;
 
     // Clock rate is 100Hz
     uint32_t target_time = ((uint32_t)ms_delay) / (1000 / CLOCK_RATE);
 
     //debug("- Waiting for SPI transfer");
-    start_clock();
+    clear_clock();
 
     while (1) {
         // The card needs lots of clock cycles to prepare a block for reading, so we must keep toggling the clock
@@ -353,13 +375,13 @@ uint8_t wait_spi_response(uint8_t ms_delay, uint8_t x) {
 
 // Wait for SPI response to be X
 uint8_t wait_spi_response2(uint8_t ms_delay, uint8_t x) {
-    uint8_t result;
+    uint8_t result = 0;
 
     // Clock rate is 100Hz
     uint32_t target_time = ((uint32_t)ms_delay) / (1000 / CLOCK_RATE);
 
     //debug("- Waiting for SPI transfer");
-    start_clock();
+    clear_clock();
 
     while (1) {
         // The card needs lots of clock cycles to prepare a block for reading, so we must keep toggling the clock
@@ -406,6 +428,9 @@ void sdcard_init(sdcard_state_t *sdcard) {
         spi_transfer(0xff);
     }
     sd_unselect();
+
+    debug("SD card init 2");
+
 
     // Ask the card to wake up and go idle in SPI mode
     attempts = 0;
@@ -586,9 +611,9 @@ void sdcard_init(sdcard_state_t *sdcard) {
             spi_transfer(0xff);
 
             // Get CSD
-            card_version = sd_cmd_buf[0] >> 6;
+            sdcard->card_version = sd_cmd_buf[0] >> 6;
 
-            if (card_version == 0) {
+            if (sdcard->card_version == 0) {
                 // This is the silly way to do things
                 debug("SD version 1");
                 sdcard->type = SD_CARD_TYPE_SDSC;
@@ -627,6 +652,8 @@ void sdcard_init(sdcard_state_t *sdcard) {
                 sdcard->capacity *= (1 << (c_size_mult + 2));
                 sdcard->capacity *= card_block_size;
                 sdcard->capacity /= 512;
+
+                sdcard->capacity -= 256;
 
                 // FIXME: how does this work
                 /*
@@ -670,27 +697,25 @@ void sdcard_init(sdcard_state_t *sdcard) {
 
     sd_unselect();
 
-    if (debug_level > 0) {
-        debug_nocr("=== SD Card ");
-        debug_decimal(sdcard->bus_id);
-        debug("");
-        debug_nocr("- Type: ");
-        if (sdcard->type == SD_CARD_TYPE_SDSC) {
-            debug("SDSC");
-        } else if (sdcard->type == SD_CARD_TYPE_SDHC) {
-            debug("SDHC");
-        } else if (sdcard->type == SD_CARD_TYPE_SDXC) {
-            debug("SDXC");
-        } else {
-            debug("SDUC");
-        }
-
-        debug_nocr("- Capacity: ");
-        debug_decimal(sdcard->capacity / 2);
-        debug("KiB");
-
-        debug("===");
+    debug_nocr("=== SD Card ");
+    debug_decimal(sdcard->bus_id);
+    debug("");
+    debug_nocr("- Type: ");
+    if (sdcard->type == SD_CARD_TYPE_SDSC) {
+        debug("SDSC");
+    } else if (sdcard->type == SD_CARD_TYPE_SDHC) {
+        debug("SDHC");
+    } else if (sdcard->type == SD_CARD_TYPE_SDXC) {
+        debug("SDXC");
+    } else {
+        debug("SDUC");
     }
+
+    debug_nocr("- Capacity: ");
+    debug_decimal(sdcard->capacity / 2);
+    debug("KiB");
+
+    debug("===");
 
     debug("SD card finished init");
     sdcard->initialised = 1;
@@ -698,57 +723,383 @@ void sdcard_init(sdcard_state_t *sdcard) {
     return;
 }
 
-// Turns out this was all far slower:
+// Start an interrupt-driven SPI conversation straight into a buffer
+void sdcard_write_sector_from_buffer(uint8_t *buffer) {
+
+    // All SPI response bytes will be DMA'ed to this address:
+    uint_fast16_t temp;
+
+    // Set up DMA controller
+
+    // Disable
+    DMA1_Channel1->CCR = 0;
+    
+    // Set peripheral address
+    DMA1_Channel1->CPAR = (uint32_t)&SPI->DR;
+
+    // Set memory address
+    DMA1_Channel1->CMAR = (uint32_t)&temp;
+
+    // Set data count (512 bytes or 256 words)
+    DMA1_Channel1->CNDTR = 256;
+
+    // Set DMA parameters
+    // MEM2MEM = 0, disable memory-to-memory mode
+    // PL[1:0] = 0, lowest priority (default)
+    // MSIZE[1:0] = 0b01, 16-bit memory width
+    // PSIZE[1:0] = 0b01, 16-bit peripheral width
+    // MINC = 0, don't increment memory address after each transfer
+    // PINC = 0, don't increment peripheral address
+    // CIRC = 0, disable circular buffering
+    // DIR = 0, peripheral-to-memory
+    DMA1_Channel1->CCR = DMA_CCR_MSIZE_0 | DMA_CCR_PSIZE_0;
+
+    // Set DMA MUX (DMAMUX Channel 0 is wired to DMA Channel 1 due to STM32 numerical illiteracy)
+    // DMAREQ_ID = 16 is SPI1 RX
+    DMAMUX1_Channel0->CCR = 16;
+
+    // Activate DMA1
+    DMA1_Channel1->CCR |= DMA_CCR_EN;
+
+    //debug_nocr("DMA transfers in queue: ");
+    //debug_decimal(DMA1_Channel1->CNDTR);
+    //debug("");
+    // Disable SPI
+    SPI->CR1 &= ~SPI_CR1_SPE;
+
+    // Switch to 16-bit RX FIFO threshold
+    SPI->CR2 &= ~SPI_CR2_FRXTH;
+
+    // Enable RX DMA
+    SPI->CR2 |= SPI_CR2_RXDMAEN;
+
+    // Re-enable SPI
+    SPI->CR1 |= SPI_CR1_SPE;
+
+    // Keep writing bytes until 512 have been transferred
+    for (int count = 0; count < 512; count++) {
+
+        //debug_nocr("Wait for send ");
+        //debug_decimal(count);
+        //debug_nocr(", in queue: ");
+        //debug_decimal(DMA1_Channel1->CNDTR);
+        //debug("");
+
+        // Wait for send buffer empty
+        while (!(SPI->SR & SPI_SR_TXE)) {
+        }
+
+        BYTE_ACCESS(SPI->DR) = buffer[count];
+    }
+
+    // Wait for DMA transfer to complete
+    while (DMA1_Channel1->CNDTR) {
+    }
+
+    // Exchange the unused CRC field (we don't have time to calculate this)
+
+    while (!(SPI->SR & SPI_SR_TXE)) {
+    }
+
+    HALFWORD_ACCESS(SPI->DR) = 0xffff;
+    while (!(SPI->SR & SPI_SR_FRLVL_1)) {
+    }
+    HALFWORD_ACCESS(SPI->DR);
+
+    // Wait for transfer completed
+    spi_wait_ready();
+
+    // Disable SPI
+    SPI->CR1 &= ~SPI_CR1_SPE;
+
+    // Switch back to 8-bit RX FIFO threshold
+    SPI->CR2 |= SPI_CR2_FRXTH;
+
+    // Disable RX DMA
+    SPI->CR2 &= ~SPI_CR2_RXDMAEN;
+
+    // Re-enable SPI
+    SPI->CR1 |= SPI_CR1_SPE;            
+}
 
 // Start an interrupt-driven SPI conversation straight into a buffer
-void sdcard_read_sector_to_buffer(sd_sector_buffer_t *buffer) {
-    cli();
+void sdcard_read_sector_to_buffer(uint8_t *buffer) {
 
-    // Switch to buffered mode
-    SPI.CTRLB |= SPI_BUFEN_bm;
+    // Set up DMA controller
+    // Channel 1 will read from SPI and write to the memory buffer
+    // Channel 2 will read from an integer on the stack and write to SPI
+    uint16_t dummy = 0xffff;
 
-    // Restart data transfer
-    //buffer->rp = buffer->sector_buffer;
-    //buffer->tp = buffer->sector_buffer;
-    //buffer->end = buffer->sector_buffer + BUFFER_SIZE;
-    buffer->done = 0;
-    buffer->count = 0;
-    buffer->tx_count = 0;
-    // Enable interrupt
-    SPI.INTCTRL |= SPI_RXCIE_bm | SPI_DREIE_bm;
+    // Disable
+    DMA1_Channel1->CCR = 0;
+    DMA1_Channel2->CCR = 0;
+    
+    // Set peripheral address
+    DMA1_Channel1->CPAR = (uint32_t)&SPI->DR;
+    DMA1_Channel2->CPAR = (uint32_t)&SPI->DR;
 
-    sei();
-}
+    // Set memory address
+    DMA1_Channel1->CMAR = (uint32_t)buffer;
+    DMA1_Channel2->CMAR = (uint32_t)&dummy;
 
-// SPI activity vector
-ISR(SPI0_INT_vect)
-{
-    // Receive Complete
-    if (SPI.INTFLAGS & SPI_RXCIF_bm) {
-        // Receive the data
-        //*(sd_buffer.rp++) = SPI.DATA;
-        write_byte_nochecks(SPI.DATA);
-        sd_buffer.count++;
+    // Set data count (512 bytes or 256 words)
+    DMA1_Channel1->CNDTR = 256;
+    DMA1_Channel2->CNDTR = 256;
 
-        // Stop at the end of the buffer and then disable the interrupt
-        if (sd_buffer.count == BUFFER_SIZE) {
-            SPI.INTCTRL &= ~SPI_RXCIE_bm;
+    // Set DMA parameters
+    // MEM2MEM = 0, disable memory-to-memory mode
+    // PL[1:0], priority level (0 for channel 1, and 1 for channel 2)
+    // MSIZE[1:0] = 0b01, 16-bit memory width
+    // PSIZE[1:0] = 0b01, 16-bit peripheral width
+    // MINC = 1, increment memory address after each transfer, or 0 = don't
+    // PINC = 0, don't increment peripheral address
+    // CIRC = 0, disable circular buffering
+    // DIR = 0, peripheral-to-memory or DIR = 1, memory-to-peripheral
+    DMA1_Channel1->CCR = DMA_CCR_PL_0 | DMA_CCR_MSIZE_0 | DMA_CCR_PSIZE_0 | DMA_CCR_MINC;
+    DMA1_Channel2->CCR = DMA_CCR_MSIZE_0 | DMA_CCR_PSIZE_0 | DMA_CCR_DIR;
 
-            // Also disable buffered mode
-            SPI.CTRLB &= ~SPI_BUFEN_bm;
+    // Set DMA MUX (DMAMUX Channel 0 is wired to DMA Channel 1 due to STM32 numerical illiteracy)
+    // DMAREQ_ID = 16 is SPI1 RX
+    DMAMUX1_Channel0->CCR = 16;
+    DMAMUX1_Channel1->CCR = 17;
 
-            sd_buffer.done = 1;
+    // Activate both DMAs
+    DMA1_Channel1->CCR |= DMA_CCR_EN;
+    DMA1_Channel2->CCR |= DMA_CCR_EN;
 
-            return;
-        }
+    // Disable SPI
+    SPI->CR1 &= ~SPI_CR1_SPE;
+
+    // Switch to 16-bit RX FIFO threshold
+    SPI->CR2 &= ~SPI_CR2_FRXTH;
+
+    // Enable TX and RX DMA
+    SPI->CR2 |= SPI_CR2_RXDMAEN | SPI_CR2_TXDMAEN;
+
+    // Re-enable SPI
+    SPI->CR1 |= SPI_CR1_SPE;
+
+    // Wait for DMA transfer to complete - should only need to wait for RX side
+    while (DMA1_Channel1->CNDTR) {
     }
 
-    // Data Register Empty
-    if (SPI.INTFLAGS & SPI_DREIF_bm) {
-        SPI.DATA = 0xff;
-        sd_buffer.tx_count++;
-        if (sd_buffer.tx_count == BUFFER_SIZE) {
-            SPI.INTCTRL &= ~SPI_DREIE_bm;
-        }
+    // Disable
+    DMA1_Channel1->CCR = 0;
+    DMA1_Channel2->CCR = 0;
+
+    // Exchange the unused CRC field with SD card (we don't want to bother calculating this)
+
+    HALFWORD_ACCESS(SPI->DR) = 0xffff;
+    while (!(SPI->SR & SPI_SR_RXNE)) {
     }
+    HALFWORD_ACCESS(SPI->DR);
+
+    // Wait for transfer completed
+    spi_wait_ready();
+
+    //debug_nocr("Got CRC: ");
+    //debug_hex(val, 4);
+    //debug("");
+
+    // Disable SPI
+    SPI->CR1 &= ~SPI_CR1_SPE;
+
+    // Switch back to 8-bit RX FIFO threshold
+    SPI->CR2 |= SPI_CR2_FRXTH;
+
+    // Disable DMA
+    SPI->CR2 &= ~SPI_CR2_TXDMAEN;
+    SPI->CR2 &= ~SPI_CR2_RXDMAEN;
+
+    // Re-enable SPI
+    SPI->CR1 |= SPI_CR1_SPE;            
 }
+
+uint16_t spi_dummy = 0xffff;
+
+// Start an interrupt-driven SPI conversation straight into a buffer
+void sdcard_start_read_sector_to_buffer(uint8_t *buffer) {
+
+    // Set up DMA controller
+    // Channel 1 will read from SPI and write to the memory buffer
+    // Channel 2 will read from an integer on the stack and write to SPI
+
+    // Disable
+    DMA1_Channel1->CCR = 0;
+    DMA1_Channel2->CCR = 0;
+    
+    // Set peripheral address
+    DMA1_Channel1->CPAR = (uint32_t)&SPI->DR;
+    DMA1_Channel2->CPAR = (uint32_t)&SPI->DR;
+
+    // Set memory address
+    DMA1_Channel1->CMAR = (uint32_t)buffer;
+    DMA1_Channel2->CMAR = (uint32_t)&spi_dummy;
+
+    // Set data count (512 bytes or 256 words)
+    DMA1_Channel1->CNDTR = 256;
+    DMA1_Channel2->CNDTR = 256;
+
+    // Set DMA parameters
+    // MEM2MEM = 0, disable memory-to-memory mode
+    // PL[1:0], priority level (0 for channel 1, and 1 for channel 2)
+    // MSIZE[1:0] = 0b01, 16-bit memory width
+    // PSIZE[1:0] = 0b01, 16-bit peripheral width
+    // MINC = 1, increment memory address after each transfer, or 0 = don't
+    // PINC = 0, don't increment peripheral address
+    // CIRC = 0, disable circular buffering
+    // DIR = 0, peripheral-to-memory or DIR = 1, memory-to-peripheral
+    DMA1_Channel1->CCR = DMA_CCR_PL_0 | DMA_CCR_MSIZE_0 | DMA_CCR_PSIZE_0 | DMA_CCR_MINC;
+    DMA1_Channel2->CCR = DMA_CCR_MSIZE_0 | DMA_CCR_PSIZE_0 | DMA_CCR_DIR;
+
+    // Set DMA MUX (DMAMUX Channel 0 is wired to DMA Channel 1 due to STM32 numerical illiteracy)
+    // DMAREQ_ID = 16 is SPI1 RX
+    DMAMUX1_Channel0->CCR = 16;
+    DMAMUX1_Channel1->CCR = 17;
+
+    // Activate both DMAs
+    DMA1_Channel1->CCR |= DMA_CCR_EN;
+    DMA1_Channel2->CCR |= DMA_CCR_EN;
+
+    // Disable SPI
+    SPI->CR1 &= ~SPI_CR1_SPE;
+
+    // Switch to 16-bit RX FIFO threshold
+    SPI->CR2 &= ~SPI_CR2_FRXTH;
+
+    // Enable TX and RX DMA
+    SPI->CR2 |= SPI_CR2_RXDMAEN | SPI_CR2_TXDMAEN;
+
+    // Re-enable SPI
+    SPI->CR1 |= SPI_CR1_SPE;
+}
+
+// Start an interrupt-driven SPI conversation straight into a buffer
+void sdcard_end_read_sector_to_buffer() {
+
+    // Wait for DMA transfer to complete - should only need to wait for RX side
+    while (DMA1_Channel1->CNDTR) {
+    }
+
+    // Disable
+    DMA1_Channel1->CCR = 0;
+    DMA1_Channel2->CCR = 0;
+
+    // Exchange the unused CRC field with SD card (we don't want to bother calculating this)
+
+    HALFWORD_ACCESS(SPI->DR) = 0xffff;
+    while (!(SPI->SR & SPI_SR_RXNE)) {
+    }
+    HALFWORD_ACCESS(SPI->DR);
+
+    // Wait for transfer completed
+    spi_wait_ready();
+
+    //debug_nocr("Got CRC: ");
+    //debug_hex(val, 4);
+    //debug("");
+
+    // Disable SPI
+    SPI->CR1 &= ~SPI_CR1_SPE;
+
+    // Switch back to 8-bit RX FIFO threshold
+    SPI->CR2 |= SPI_CR2_FRXTH;
+
+    // Disable DMA
+    SPI->CR2 &= ~SPI_CR2_TXDMAEN;
+    SPI->CR2 &= ~SPI_CR2_RXDMAEN;
+
+    // Re-enable SPI
+    SPI->CR1 |= SPI_CR1_SPE;            
+}
+
+
+
+
+#if 0
+// For writes to the SPI hardware:
+
+    // Set up DMA controller
+
+    // Disable
+    DMA1_Channel1->CCR = 0;
+    
+    // Set peripheral address
+    DMA1_Channel1->CPAR = (uint32_t)&SPI->DR;
+
+    // Set memory address
+    DMA1_Channel1->CMAR = (uint32_t)buffer;
+
+    // Set data count (512 bytes or 256 words)
+    DMA1_Channel1->CNDTR = 256;
+
+    // Set DMA parameters
+    // MEM2MEM = 0, disable memory-to-memory mode
+    // PL[1:0] = 0, lowest priority (default)
+    // MSIZE[1:0] = 0b01, 16-bit memory width
+    // PSIZE[1:0] = 0b01, 16-bit peripheral width
+    // MINC = 1, increment memory address after each transfer
+    // PINC = 0, don't increment peripheral address
+    // CIRC = 0, disable circular buffering
+    // DIR = 1, memory-to-peripheral
+    DMA1_Channel1->CCR = DMA_CCR_MSIZE_0 | DMA_CCR_PSIZE_0 | DMA_CCR_MINC | DMA_CCR_DIR;
+
+    // Set DMA MUX (DMAMUX Channel 0 is wired to DMA Channel 1 due to STM32 numerical illiteracy)
+    // DMAREQ_ID = 17 is SPI1 TX
+    DMAMUX1_Channel0->CCR = 17;
+
+    // Activate DMA1
+    DMA1_Channel1->CCR |= DMA_CCR_EN;
+    debug(DMA1_Channel1->CCR & DMA_CCR_EN ? "DMA is enabled" : "Enablement failed");
+    debug(DMA1->ISR & DMA_ISR_TEIF1 ? "DMA Transfer error" : "No transfer error");
+
+    debug_nocr("DMA transfers in queue: ");
+    debug_decimal(DMA1_Channel1->CNDTR);
+    debug("");
+    // Disable SPI
+    SPI->CR1 &= ~SPI_CR1_SPE;
+
+    // Enable TX DMA
+    SPI->CR2 |= SPI_CR2_TXDMAEN;
+
+    // Re-enable SPI
+    SPI->CR1 |= SPI_CR1_SPE;
+
+    // Keep reading halfwords in until 256 have been transferred
+    for (int count = 0; count < 256; count++) {
+        debug_nocr("Wait for receive ");
+        debug_decimal(count);
+        debug_nocr(", in queue: ");
+        debug_decimal(DMA1_Channel1->CNDTR);
+        debug("");
+
+        // Wait for receive buffer not empty
+        while (!(SPI->SR & SPI_SR_RXNE)) {
+        }
+        // Get 2 bytes from receive buffer
+        volatile uint_fast16_t ignore = HALFWORD_ACCESS(SPI->DR);
+    }
+
+    // Wait for DMA transfer to complete
+    while (DMA1_Channel1->CNDTR) {
+    }
+
+    // Exchange the unused CRC field (we don't have time to calculate this)
+
+    while (!(SPI->SR & SPI_SR_TXE)) {
+    }
+
+    HALFWORD_ACCESS(SPI->DR) = 0xffff;
+    while (!(SPI->SR & SPI_SR_FRLVL_1)) {
+    }
+    uint_fast16_t val = HALFWORD_ACCESS(SPI->DR);
+
+    // Disable SPI
+    SPI->CR1 &= ~SPI_CR1_SPE;
+
+    // Disable TX DMA
+    SPI->CR2 &= ~SPI_CR2_TXDMAEN;
+
+    // Re-enable SPI
+    SPI->CR1 |= SPI_CR1_SPE;            
+#endif

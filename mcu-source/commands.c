@@ -1,4 +1,3 @@
-#include <avr/pgmspace.h>
 #include "acsi.h"
 #include "fpga_comm.h"
 #include "sdcard.h"
@@ -87,50 +86,10 @@ acsi_status_t read_block(logical_drive_t *device, uint32_t addr) {
             // Go!
             set_data_out();
 
-#if defined(SD_INTERRUPTS)
-            sdcard_read_sector_to_buffer(&sd_buffer);
-            while (sd_buffer.done == 0) {
-                    debug_nocr("Waiting - count=");
-                    debug_decimal(sd_buffer.count);
-                    debug_nocr(" tx_count=");
-                    debug_decimal(sd_buffer.tx_count);
-                    debug("");
-
+            sdcard_read_sector_to_buffer(sd_buffer[0]);
+            for (uint_fast16_t i = 0; i < 512; i++) {
+                write_byte_nochecks(sd_buffer[0][i]);
             }
-            // Read the unused CRC field
-            spi_transfer(0xff);
-            spi_transfer(0xff);
-
-#else
-            // Switch to buffered SPI mode
-            //SPI.CTRLA &= ~SPI_ENABLE_bm;
-            SPI.CTRLB |= SPI_BUFEN_bm;
-            //SPI.CTRLA |= SPI_ENABLE_bm;
-
-            // Start 2-way SPI data transmission from the SD card by writing two dummy values
-            spi_start();
-            spi_start();
-
-            for (uint16_t byte = 0; byte < 510; byte++) {
-                //uint8_t value = spi_in_nowait();
-                // Then send the value
-                write_byte_nochecks(spi_in_nowait());
-                // Keep the SPI transfer going for the next byte
-                spi_start();
-            }
-            // Do the 511th and 512th byte without sending
-            write_byte_nochecks(spi_in_nowait());
-            write_byte_nochecks(spi_in_nowait());
-
-            // disable buffered mode
-            //SPI.CTRLA &= ~SPI_ENABLE_bm;
-            SPI.CTRLB &= ~SPI_BUFEN_bm;
-            //SPI.CTRLA |= SPI_ENABLE_bm;
-            
-            // Read the unused CRC field (we don't have time to calculate this)
-            spi_transfer(0xff);
-            spi_transfer(0xff);
-#endif
         }
     } else {
         debug_nocr("*** ERR invalid resp from CMD17 reading blk ");
@@ -141,50 +100,6 @@ acsi_status_t read_block(logical_drive_t *device, uint32_t addr) {
     }
     sd_unselect();
     return STATUS_OK;
-}
-
-static inline void transfer_1_byte() {
-    write_byte_nochecks(spi_in_nowait());
-    // Keep the SPI transfer going for the next byte
-    spi_start();
-}
-
-static inline void transfer_16_bytes() {
-    transfer_1_byte();
-    transfer_1_byte();
-    transfer_1_byte();
-    transfer_1_byte();
-    transfer_1_byte();
-    transfer_1_byte();
-    transfer_1_byte();
-    transfer_1_byte();
-    transfer_1_byte();
-    transfer_1_byte();
-    transfer_1_byte();
-    transfer_1_byte();
-    transfer_1_byte();
-    transfer_1_byte();
-    transfer_1_byte();
-    transfer_1_byte();
-}
-
-static inline void transfer_256_bytes() {
-    transfer_16_bytes();
-    transfer_16_bytes();
-    transfer_16_bytes();
-    transfer_16_bytes();
-    transfer_16_bytes();
-    transfer_16_bytes();
-    transfer_16_bytes();
-    transfer_16_bytes();
-    transfer_16_bytes();
-    transfer_16_bytes();
-    transfer_16_bytes();
-    transfer_16_bytes();
-    transfer_16_bytes();
-    transfer_16_bytes();
-    transfer_16_bytes();
-    transfer_16_bytes();
 }
 
 acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
@@ -225,6 +140,8 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
     set_data_out();
     set_data_mode();
 
+    spi_fast();
+
 #ifdef MULTI_BLOCK_READ
 
     uint32_t sd_addr = addr;
@@ -244,100 +161,90 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
         write_extra_byte();
 #endif
 
+        // Which buffer is currently being DMA-ed
+        uint_fast8_t buf_no = 0;
+
         for (uint16_t i = 0; i < transfer_length; i++) {
+            uint_fast8_t buf_other = buf_no ^ 1;
+
+            // debug_nocr("Starting transfer for i = ");
+            // debug_decimal(i);
+            // debug("");
+
             // Wait for block ready token.
-            result = wait_spi_response(100, 0xff);
+            //result = wait_spi_response(100, 0xff);
+            result = wait_spi_response(255, 0xff);
             if (result == 0xff) {
                 sd_unselect();
                 green_led_off();
                 debug_nocr("*** ERR SD timeout reading blk ");
-                debug_hex(addr, 8);
+                debug_hex(addr + i, 8);
                 debug("");
+
+                // FIXME: We are gonna need to handle errors from the middle of a transfer
+                // by resetting the DMA and SPI hardware.
                 device->sense_key = CNT_ERR_DATA_ERROR;
                 return STATUS_CHECK_CONDITION;
             }
 
             if (result == SD_CMD_BLOCK_READY_TOKEN) {
                 // Go!
-                //debug("Got block ready token");
+                debug_nocr("Starting DMA read block ");
+                debug_decimal(i);
+                debug_nocr(" in buffer ");
+                debug_decimal(buf_no);
+                debug("");
 
+                // Start getting a block of data off the card
+                sdcard_start_read_sector_to_buffer(sd_buffer[buf_no]);
 
-#if defined(SD_INTERRUPTS)
-                sdcard_read_sector_to_buffer(&sd_buffer);
-                while (sd_buffer.done == 0) {
-                    debug_nocr("Waiting - count=");
-                    debug_decimal(sd_buffer.count);
-                    debug_nocr(" tx_count=");
-                    debug_decimal(sd_buffer.tx_count);
+                if (i > 0) {
+                    // Send the last completed buffer (buf_other) back to the FPGA
+
+                    debug_nocr("Sending completed sector ");
+                    debug_decimal(i - 1);
+                    debug_nocr(" in buffer ");
+                    debug_decimal(buf_other);
                     debug("");
+
+                    uint8_t *p = sd_buffer[buf_other];
+                    uint8_t *end = p + 512;
+                    while (p < end) {
+                        write_byte_nochecks(*(p++));
+                    }
                 }
-                // Read the unused CRC field
-                spi_transfer(0xff);
-                spi_transfer(0xff);
 
-#else
-                // Switch to buffered SPI mode
-                //SPI.CTRLA &= ~SPI_ENABLE_bm;
-                SPI.CTRLB |= SPI_BUFEN_bm;
-                //SPI.CTRLA |= SPI_ENABLE_bm;
+                // debug_nocr("Finishing DMA read block ");
+                // debug_decimal(i);
+                // debug_nocr(" in buffer ");
+                // debug_decimal(buf_no);
+                // debug("");
+                sdcard_end_read_sector_to_buffer();
 
-                // Start 2-way SPI data transmission from the SD card by writing two dummy values
-                // This prefills the 2-byte FIFO
-                spi_start();
-                spi_start();
-/*
-                for (uint16_t byte = 0; byte < 510; byte++) {
-                    //uint8_t value = spi_in_nowait();
-                    // Then send the value
-                    write_byte_nochecks(spi_in_nowait());
-                    // Keep the SPI transfer going for the next byte
-                    spi_start();
-                }*/
-                transfer_256_bytes();
-                transfer_16_bytes();
-                transfer_16_bytes();
-                transfer_16_bytes();
-                transfer_16_bytes();
-                transfer_16_bytes();
-                transfer_16_bytes();
-                transfer_16_bytes();
-                transfer_16_bytes();
-                transfer_16_bytes();
-                transfer_16_bytes();
-                transfer_16_bytes();
-                transfer_16_bytes();
-                transfer_16_bytes();
-                transfer_16_bytes();
-                transfer_16_bytes();
-                transfer_1_byte();
-                transfer_1_byte();
-                transfer_1_byte();
-                transfer_1_byte();
-                transfer_1_byte();
-                transfer_1_byte();
-                transfer_1_byte();
-                transfer_1_byte();
-                transfer_1_byte();
-                transfer_1_byte();
-                transfer_1_byte();
-                transfer_1_byte();
-                transfer_1_byte();
-                transfer_1_byte();
-                // Do the 511th and 512th byte without sending
-                write_byte_nochecks(spi_in_nowait());
-                write_byte_nochecks(spi_in_nowait());
+                // Flip buffers
+                buf_no = buf_other;
+            } else {
+                debug_nocr("*** ERR SD response not ready token ");
+                debug_hex(addr + i, 8);
+                debug("");
 
-                // disable buffered mode
-                //SPI.CTRLA &= ~SPI_ENABLE_bm;
-                SPI.CTRLB &= ~SPI_BUFEN_bm;
-                //SPI.CTRLA |= SPI_ENABLE_bm;
-                
-                // Read the unused CRC field (we don't have time to calculate this)
-                spi_transfer(0xff);
-                spi_transfer(0xff);
-#endif
-                //debug("Fin xfer from card");
-            }            
+                // FIXME: We are gonna need to handle errors from the middle of a transfer
+                // by resetting the DMA and SPI hardware.
+                device->sense_key = CNT_ERR_DATA_ERROR;
+                return STATUS_CHECK_CONDITION;
+            }
+        }
+
+        buf_no = buf_no ^ 1;
+
+        debug_nocr("Sending completed sector ");
+        debug_nocr("in buffer ");
+        debug_decimal(buf_no);
+        debug("");
+
+        // Send the last buffer back to the FPGA
+        for (uint_fast16_t count = 0; count < 512; count++) {
+            write_byte_nochecks(sd_buffer[buf_no][count]);
         }
 
 #ifdef DOUBLE_BUFFERED_MODE
@@ -471,23 +378,12 @@ acsi_status_t sd_card_single_block_write(logical_drive_t *device, uint32_t addr)
     // Start block token
     spi_transfer(SD_CMD_SINGLE_BLOCK_START_TOKEN);
 
-    // Get first byte from FPGA
-    uint8_t value = read_byte_nochecks();
-    spi_start_with_value(value);
-
-    // Send bytes 2-512
-    for (uint16_t byte = 1; byte < 512; byte++) {
-        // Get next byte from FPGA
-        value = read_byte_nochecks();
-        // Write to SPI without waiting to read back
-        spi_out_nowait(value);
+    // Get bytes from FPGA
+    for (uint_fast16_t count = 0; count < 512; count++) {
+        sd_buffer[0][count] = read_byte_nochecks();
     }
-    // Wait for last byte to finish
-    spi_wait_ready();
 
-    // Send unused CRC field
-    spi_transfer(0xff);
-    spi_transfer(0xff);
+    sdcard_write_sector_from_buffer(sd_buffer[0]);
 
     // Wait for the card to send a response token
     result = wait_spi_response(100, 0xff);
@@ -628,23 +524,12 @@ acsi_status_t acsi_write(logical_drive_t *device, uint8_t cmd_offset) {
         for (uint16_t i = 0; i < transfer_length; i++) {
             spi_transfer(SD_CMD_BLOCK_SEND_TOKEN);
 
-            // Get first byte from FPGA
-            uint8_t value = read_byte_nochecks();
-            spi_start_with_value(value);
-
-            // Send bytes 2-512
-            for (uint16_t byte = 1; byte < 512; byte++) {
-                // Get next byte from FPGA
-                value = read_byte_nochecks();
-                // Write to SPI without waiting to read back
-                spi_out_nowait(value);
+            // Get bytes from FPGA
+            for (uint16_t byte = 0; byte < 512; byte++) {
+                sd_buffer[0][byte] = read_byte_nochecks();
             }
-            // Wait for last byte to finish
-            spi_wait_ready(); // TODO I don't think we need this
 
-            // Send unused CRC field
-            spi_transfer(0xff);
-            spi_transfer(0xff);
+            sdcard_write_sector_from_buffer(sd_buffer[0]);
 
             // Wait for the card to send a response token
             result = wait_spi_response(100, 0xff);
@@ -778,7 +663,7 @@ acsi_status_t acsi_mode_sense_6(logical_drive_t *device, uint8_t cmd_offset) {
   return STATUS_OK;
 }
 
-const uint8_t PROGMEM inquiry_scsi_response[36] = {
+const uint8_t inquiry_scsi_response[36] = {
     0,                                                      // Peripheral qualifier: device connected
                                                             // Peripheral type: block device
     0x80,                                                   // Removable: yes
@@ -835,7 +720,7 @@ acsi_status_t scsi_inquiry(logical_drive_t *device, uint8_t cmd_offset) {
         uint8_t buf[sizeof(inquiry_scsi_response)];
         uint8_t i;
         for (i = 0; i < sizeof(inquiry_scsi_response); i++) {
-            buf[i] = pgm_read_byte(inquiry_scsi_response + i);
+            buf[i] = inquiry_scsi_response[i];
         }
 
         // Copy the disk size into the description

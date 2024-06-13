@@ -1,10 +1,12 @@
 #ifndef __RTC_H
 #define __RTC_H
 
-#include <avr/io.h>
+#include <stdint.h>
 
-#define CLOCK_PORT PORTE
-#define CLOCK_PIN _BV(1)
+#include "stdutil.h"
+
+#define CLOCK_PORT GPIOD
+#define CLOCK_PIN 2
 
 #define MCP7951_READ 0b00010011
 #define MCP7951_WRITE 0b00010010

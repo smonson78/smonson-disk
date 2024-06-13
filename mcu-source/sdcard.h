@@ -2,19 +2,16 @@
 #define __SDCARD_H
 
 #include <string.h>
-#include <avr/pgmspace.h>
-#include <avr/interrupt.h>
-#include <avr/sleep.h>
-#include <util/delay_basic.h>
-#include <util/delay.h>
 #include <stdint.h>
 
-// For SD card SPI
-#define SPI_CS0_PORT PORTA
-#define SPI_CS0_BIT _BV(2)
+#include "stdutil.h"
 
-#define SPI_CS1_PORT PORTA
-#define SPI_CS1_BIT _BV(3)
+// For SD card SPI
+#define SPI_CS0_PORT GPIOC
+#define SPI_CS0_BIT 7
+
+#define SPI_CS1_PORT GPIOA
+#define SPI_CS1_BIT 10
 
 typedef enum {
 	SD_CMD_0_GO_IDLE_STATE = 0,
@@ -118,23 +115,12 @@ typedef struct {
 } sdcard_state_t;
 
 // 512 bytes + 2 CRC bytes
-#define BUFFER_SIZE 512
+#define SD_BUFFER_SIZE 512
 
-typedef struct {
-    uint8_t sector_buffer[BUFFER_SIZE];
-	uint8_t done;
-	uint16_t count;
-	uint16_t tx_count;
-} sd_sector_buffer_t;
-
-extern sd_sector_buffer_t sd_buffer;
+// Two buffers
+extern uint8_t sd_buffer[2][SD_BUFFER_SIZE];
 
 extern sdcard_state_t sdcards[2];
-
-extern uint8_t sdcard_initialised;
-uint8_t card_version;
-extern uint8_t sdcard_extended_capacity;
-extern uint32_t sdcard_capacity;
 
 void sdcard_setup();
 void sdcard_init();
@@ -154,6 +140,11 @@ uint8_t sd_reply();
 uint8_t wait_spi_response(uint8_t ms_delay, uint8_t x);
 uint8_t wait_spi_response2(uint8_t ms_delay, uint8_t x);
 
-void sdcard_read_sector_to_buffer(sd_sector_buffer_t *buffer);
+void sdcard_read_sector_to_buffer(uint8_t *buffer);
+void sdcard_write_sector_from_buffer(uint8_t *buffer);
+
+void sdcard_start_read_sector_to_buffer(uint8_t *buffer);
+void sdcard_end_read_sector_to_buffer();
+
 
 #endif

@@ -1,23 +1,30 @@
-#include <avr/io.h>
-#include <util/delay_basic.h>
-#include <util/delay.h>
 #include <string.h>
 
+#include "stm32c0xx.h"
 #include "spi.h"
 #include "rtc.h"
 #include "debug.h"
+#include "timer0.h"
+
+#include "stdutil.h"
 
 void rtc_select() {
-    CLOCK_PORT.OUTCLR = CLOCK_PIN;
+    CLOCK_PORT->BSRR = BSR_LOW(CLOCK_PIN);
 }
 
 void rtc_unselect() {
-    CLOCK_PORT.OUTSET = CLOCK_PIN;
+    CLOCK_PORT->BSRR = BSR_HIGH(CLOCK_PIN);
 }
 
 void rtc_setup() {
     // Setup SS pin as output
-    CLOCK_PORT.DIRSET = CLOCK_PIN;
+    CLOCK_PORT->MODER &= MODE_MASK(CLOCK_PIN);
+    CLOCK_PORT->MODER |= MODE_OUTPUT(CLOCK_PIN);
+    //CLOCK_PORT->OTYPER &= OTYPE_MASK(CLOCK_PIN);
+    //CLOCK_PORT->OTYPER |= OTYPE_OPEN_DRAIN(CLOCK_PIN);
+
+    CLOCK_PORT->OSPEEDR &= OSPEED_MASK(CLOCK_PIN);
+    CLOCK_PORT->OSPEEDR |= OSPEED_VFAST(CLOCK_PIN);
 
     rtc_unselect();
 }
@@ -25,7 +32,6 @@ void rtc_setup() {
 // Write some bytes into the clock memory
 void rtc_write(uint8_t addr, uint8_t *data, uint8_t len) {
 
-    spi_slow();
     rtc_select();
 
     spi_transfer(MCP7951_WRITE);
@@ -36,11 +42,9 @@ void rtc_write(uint8_t addr, uint8_t *data, uint8_t len) {
     }
     
     rtc_unselect();
-    spi_fast();
 }
 
 void rtc_read(uint8_t addr, uint8_t *dest, uint8_t len) {
-    spi_slow();
     rtc_select();
 
     spi_transfer(MCP7951_READ);
@@ -50,7 +54,6 @@ void rtc_read(uint8_t addr, uint8_t *dest, uint8_t len) {
     }
     
     rtc_unselect();
-    spi_fast();
 }
 
 uint8_t getbcd(uint16_t num) {
@@ -64,19 +67,27 @@ void rtc_set(datetime_t *datetime) {
     // 3. Load new values
     // 4. Set the ST flag again
 
-    uint8_t rtc_buf[8];
+    uint8_t rtc_buf[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
     // Clear ST and VBAT flags
-    memset(rtc_buf, 0, 3);
+    // GCC thinks this leaves the memory uninitialised:
+    //memset(rtc_buf, 0, 4);
+    spi_slow();
 
-    rtc_write(1, rtc_buf, 3);
+    rtc_write(1, rtc_buf, 4); // Clears ST bit in addr 1 and VBATEN bit in addr 4
+    debug("Wrote stop-osc command");
 
     // Wait for oscillator to stop running
     uint8_t success = 0;
     for (uint8_t i = 0; i < 255; i++) {
         rtc_read(4, &rtc_buf[0], 1);
 
+        debug_nocr("Read ");
+        debug_hex(rtc_buf[0], 2);
+        debug(" from addr 4");
+
         if ((rtc_buf[0] & _BV(5)) == 0) {
+            // Oscillator is not running.
             success = 1;
             break;
         }
@@ -93,6 +104,8 @@ void rtc_set(datetime_t *datetime) {
     rtc_buf[2] = getbcd(datetime->minute) & 0x7f;
     // Hours
     rtc_buf[3] = getbcd(datetime->hour) & 0x7f;
+    // Forget day-of-week, who cares
+    rtc_buf[4] = 0;
     // Day
     rtc_buf[5] = getbcd(datetime->day) & 0x3f;
     // Month
@@ -110,20 +123,25 @@ void rtc_set(datetime_t *datetime) {
 
     // Wait for oscillator to start up
     success = 0;
-    for (uint8_t i = 0; i < 255; i++) {
+    debug("Starting osc");
+    for (uint8_t i = 0; i < 64; i++) {
         rtc_read(4, &rtc_buf[0], 1);
+
+        debug_nocr("Read ");
+        debug_hex(rtc_buf[0], 2);
+        debug(" from addr 4");        
 
         if (rtc_buf[0] & _BV(5)) {
             success = 1;
             break;
         }
 
-        _delay_ms(10);
+        _delay_ms(40);
     }
 
     if (success) {
-        // Enable battery backup, VBAT bit at address 4, bit 3
-        rtc_buf[4] |= 0x08;
+        // Enable battery backup, VBATEN bit at address 4, bit 3
+        rtc_buf[4] |= _BV(3);
         rtc_write(4, rtc_buf + 4, 1);
     } else {
         debug("Oscillator never started up");
@@ -132,6 +150,7 @@ void rtc_set(datetime_t *datetime) {
 
 void rtc_get(datetime_t *dest) {
     uint8_t rtc_buf[8];
+    spi_slow();
 
     rtc_read(0, rtc_buf, 8);
 
@@ -189,9 +208,6 @@ void rtc_get(datetime_t *dest) {
     debug_nocr(":");
 
     debug_decimal(dest->second);
-
-    //debug_nocr(".");
-    //debug_decimal(hundredths);
 
     debug("");
 

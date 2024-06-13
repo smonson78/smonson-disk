@@ -1,42 +1,46 @@
-AVRDUDE_MCPU=avr128da48
-LIBC_MCPU=avr128da48
-FCLK=20000000
+# CPU core selection (for GCC)
+MCPU=cortex-m0plus
 
-# Don't really need fuses for this project
-OSCCFG_FUSE=0x00
-SYSCFG0_FUSE=0xC8
+# CPU architecture selection (for objdump) - might not even matter.
+ARCH=armv6-m
 
-# You have to download this from Atmel's website, and then unzip it
-ATPACK=atpack
+FCLK=48000000
+HCLK=48000000
+PCLK=48000000
+FLASH_ADDR=0x8000000
 
-PROGTYPE=jtag2updi
-PROGPORT=/dev/ttyUSB0
+# Device configuration for STM32C031, ARM Cortex M0+
+FAMILY=STM32C0xx
+DEVICE=STM32C031xx
+CUBE=STM32CubeC0
 
-LIBC=/home/simon/local/avr
+CC=arm-none-eabi-gcc
+AS=arm-none-eabi-as
+OBJCOPY=arm-none-eabi-objcopy
+OBJDUMP=arm-none-eabi-objdump
 
-OBJS=fpga_comm.o sdcard.o acsi.o modesense.o commands.o serial.o debug.o timer0.o spi.o rtc.o
+STFLASH=st-flash --freq=1000k
 
-AVRDUDE=avrdude -C ~/dev/jtag2updi/avrdude.conf -p $(AVRDUDE_MCPU) -c $(PROGTYPE) -P $(PROGPORT) -B 19200
-
-CC=avr-gcc
-CFLAGS=-g -Wall -O3 -mmcu=$(LIBC_MCPU) -B$(ATPACK)/gcc/dev/$(LIBC_MCPU) -DF_CPU=$(FCLK) -I$(LIBC)/include
-#LDLIBS=-lgcc
-LDFLAGS=--sysroot $(LIBC)
+INCLUDE_PATHS=-I$(CUBE)/Drivers/CMSIS/Device/ST/$(FAMILY)/Include -I$(CUBE)/Drivers/CMSIS/Include
+CFLAGS=-g -Wall -O3 -mcpu=$(MCPU) -mthumb --specs=picolibc.specs -DF_CLK=$(FCLK) \
+	-DF_PCLK=$(PCLK) -DF_HCLK=$(HCLK) -D$(DEVICE) $(INCLUDE_PATHS)
+LDFLAGS=-mcpu=$(MCPU) --specs=picolibc.specs -Tlinker.ld
+LDLIBS=
 
 TARGET=hdd
+OBJS=debug.o fpga_comm.o acsi.o commands.o modesense.o serial.o sdcard.o spi.o rtc.o timer0.o int.o
 
-$(TARGET).hex: $(TARGET).elf
-	avr-objcopy -j .text -j .data -O ihex $^ $@
+$(TARGET).bin: $(TARGET).elf
+	$(OBJCOPY) -j .init -j .text -j .data -j .rodata -O binary $^ $@
 
 $(TARGET).elf: main.o $(OBJS)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-flash: $(TARGET).hex
-	$(AVRDUDE) -U flash:w:$^:i
-
-fuses:
-	$(AVRDUDE) -U osccfg:w:$(OSCCFG_FUSE):m
-	$(AVRDUDE) -U syscfg0:w:$(SYSCFG0_FUSE):m
+flash: $(TARGET).bin
+	$(STFLASH) write $^ $(FLASH_ADDR)
 
 clean:
-	$(RM) *.o *.elf *.hex
+	$(RM) *.o *.elf $(TARGET).bin
+
+dasm: $(TARGET).elf
+	$(OBJDUMP) -S $(TARGET).elf

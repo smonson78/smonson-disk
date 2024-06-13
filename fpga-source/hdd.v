@@ -4,7 +4,7 @@ module hdd (
 	// Atari signals
 	f_data, f_cs, f_bus_dir, f_reset, f_ack, f_a1, f_rw, f_irq, f_drq,
 	// AVR signals
-	a_reset, a_data, a_cs, a_bus_dir, a_cmd, a_int,
+	a_data, a_cs, a_bus_dir, a_cmd, a_int,
 	a_extra, a_extra_2, a_ready
 );
 
@@ -26,17 +26,12 @@ module hdd (
 	input a_cs;             // strobe high to latch input/output
     
 	// AVR<-->FPGA comms
-	output a_reset;
 	// Read/write "extra data" when set
 	input a_extra;
     input a_extra_2;
 	// AVR is waiting to receive the next byte if this signal is raised
 	input a_ready;
 	 
-	// Drive "RESET" to zero when the Atari does. Otherwise tristate it. This is here so the device could be 
-	// reset from the ST.
-	wire a_reset = f_reset ? 1'bz : 1'b0;
-
 	// Device config/status registers
 
 	// Which ACSI IDs does this device respond to?
@@ -167,7 +162,16 @@ module hdd (
             selected <= 0;
 		end	else if (f_cs_falling && !f_rw && !f_a1) begin
 			// On receipt of a command packet, select if it's for this device or unselect if it's not.
-			if ((1 << f_data[7:5]) & acsi_ids) begin
+			if (
+				(acsi_ids[0] && (f_data[7:5] == 3'b000))
+				|| (acsi_ids[1] && (f_data[7:5] == 3'b001))
+				|| (acsi_ids[2] && (f_data[7:5] == 3'b010))
+				|| (acsi_ids[3] && (f_data[7:5] == 3'b011))
+				|| (acsi_ids[4] && (f_data[7:5] == 3'b100))
+				|| (acsi_ids[5] && (f_data[7:5] == 3'b101))
+				|| (acsi_ids[6] && (f_data[7:5] == 3'b110))
+				|| (acsi_ids[7] && (f_data[7:5] == 3'b111))
+			) begin
 				selected <= 1'b1;
 			end else begin
 				selected <= 0;
@@ -241,12 +245,17 @@ module hdd (
 			avr_byte_available <= avr_byte_buf_available;
             avr_byte <= avr_byte_buf;
             avr_byte_buf_available <= 0;
-		end else if (in_data_mode && f_rw && f_ack_rising) begin
-			// Atari receives a byte in data mode
+		end else if (in_data_mode && f_rw && f_ack_falling) begin
+			// Atari receives a byte in data mode. Start of the pulse.
+			// Must do this here so that we don't have a chance of asserting DRQ again after the end of the ACK pulse.
 			avr_byte_available <= avr_byte_buf_available;
+		end else if (in_data_mode && f_rw && f_ack_rising) begin
+			// End of the pulse. Move to the next byte.
             avr_byte <= avr_byte_buf;
             avr_byte_buf_available <= 0;
 		end
 	end
+	
+	
      
 endmodule

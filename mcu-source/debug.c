@@ -3,20 +3,7 @@
 #include "serial.h"
 #include "fpga_comm.h"
 
-uint8_t debug_level;
-
-void debug_nocr_fn(const char *string) {
-    if (debug_level > 0) {
-        serial_send_progmem(string);
-    }
-}
-
-void debug_fn(const char *string) {
-    if (debug_level > 0) {
-        serial_send_progmem(string);
-        serial_send_progmem(PSTR("\r\n"));
-    }
-}
+uint8_t debug_level = 9;
 
 void debug_ram_nocr(char *string) {
     if (debug_level > 0) {
@@ -27,7 +14,7 @@ void debug_ram_nocr(char *string) {
 void debug_ram_fn(char *string) {
     if (debug_level > 0) {
         serial_send(string);
-        serial_send_progmem(PSTR("\r\n"));
+        serial_send("\r\n");
     }
 }
 

@@ -1,9 +1,5 @@
-#include <avr/io.h>
-#include <avr/pgmspace.h>
-#include <avr/interrupt.h>
-#include <avr/sleep.h>
-#include <util/delay_basic.h>
-#include <util/delay.h>
+#include "stm32c0xx.h"
+
 #include <stdint.h>
 
 #include "sdcard.h"
@@ -23,42 +19,21 @@
  * License: GPL 3 or later https://www.gnu.org/licenses/gpl-3.0.en.html unless otherwise noted.
  */
 
-// Switch internal clock to 20MHz mode
-void clk_20MHz() {
-    // Magic number to allow clock changes
-    //CCP = CCP_IOREG_gc;
+// Change the HSISYS prescaler from 2 to 0 to increase the clock from 12MHz to 48MHz
+void clk_48MHz() {
 
-    // Switch to internal high-frequency oscillator
-    //CLKCTRL.MCLKCTRLA = 0b00000000; // It's already the default
+    // Pump up the flash memory wait states value to 2 since we will be operating above 24MHz
+    FLASH->ACR &= ~FLASH_ACR_LATENCY;
+    FLASH->ACR |= 0b001 << FLASH_ACR_LATENCY_Pos;
 
-    // Set internal oscillator to run at 20MHz
-    CCP = CCP_IOREG_gc;
-    CLKCTRL.OSCHFCTRLA = 0b00100000;
+    while ((FLASH->ACR & FLASH_ACR_LATENCY) != (0b001 << FLASH_ACR_LATENCY_Pos)) {
+        // wait for new latency to be applied
+    }
 
-    // Magic number to allow clock changes
-    CCP = CCP_IOREG_gc;
-
-    // Prescaler disabled
-    CLKCTRL.MCLKCTRLB = 0b00000000;    
-}
-
-// Switch internal clock to 20MHz mode
-void clk_24MHz() {
-    // Magic number to allow clock changes
-    //CCP = CCP_IOREG_gc;
-
-    // Switch to internal high-frequency oscillator
-    //CLKCTRL.MCLKCTRLA = 0b00000000; // It's already the default
-
-    // Set internal oscillator to run at 24MHz
-    CCP = CCP_IOREG_gc;
-    CLKCTRL.OSCHFCTRLA = 0b00100100;
-
-    // Magic number to allow clock changes
-    CCP = CCP_IOREG_gc;
-
-    // Prescaler disabled
-    CLKCTRL.MCLKCTRLB = 0b00000000;    
+    // Change HSISYS prescale value from default value 0b010 to 0b000 to get 48MHz operation
+    RCC->CR &= ~RCC_CR_HSIDIV_Msk;
+    //RCC->CR |= 0b001 << RCC_CR_HSIDIV_Pos; // Prescaler x2
+    //RCC->CR |= 0b010 << RCC_CR_HSIDIV_Pos; // Prescaler x4
 }
 
 void set_acsi_id_mask() {
@@ -75,44 +50,247 @@ void set_acsi_id_mask() {
     set_acsi_ids(acsi_id_mask);
 }
 
+// Read one block from SD card for debugging
+void debug_read_block(logical_drive_t *device, uint32_t addr) {
+    sdcard_state_t *sdcard = device->sdcard;
+    uint8_t *buffer = &sd_buffer[0][0];
+
+    // Calculate adjusted address
+    uint32_t sd_addr = addr;
+    if (sdcard->type == SD_CARD_TYPE_SDSC) {
+        sd_addr *= 512;
+    }
+
+    sd_select(sdcard->bus_id);
+    sd_command(SD_CMD_17_BLOCK_READ, sd_addr);
+    uint8_t result = sd_response_r1();
+
+    // If a reply was received
+    if (result != 0xff) {
+
+        // Wait for card to be ready to send data. It will send 0xff while it's preparing
+        result = wait_spi_response(100, 0xff);
+        if (result == 0xff) {
+            sd_unselect();
+            green_led_off();
+            debug_nocr("*** ERR SD timeout reading blk ");
+            debug_hex(addr, 8);
+            debug("");
+            return;
+        }
+
+        if (result == SD_CMD_BLOCK_READY_TOKEN) {
+            // Go!
+            sdcard_read_sector_to_buffer(sd_buffer[0]);
+
+            /*
+            for (uint_fast16_t i = 0; i < 512; i++) {
+                write_byte_nochecks(sd_buffer[0][i]);
+            }
+            */
+
+        }
+    } else {
+        debug_nocr("*** ERR invalid resp from CMD17 reading blk ");
+        debug_hex(addr, 8);
+        debug("");
+        return;
+    }
+    sd_unselect();
+    
+    //debug_nocr("Read 512 bytes from sector ");
+    //debug_decimal(addr);
+    //debug(":");
+
+    for (int pos = 0; pos < 512; pos++) {
+        if (pos % 16 == 0) {
+            debug_hex(pos, 4);
+            debug_nocr(": ");
+        }
+        debug_hex(buffer[pos], 2);
+
+        if (pos % 16 == 15) {
+            debug("");
+        } else {
+            debug_nocr(" ");
+        }
+    }
+}
+
+// Read one block from SD card for debugging
+void debug_write_block(logical_drive_t *device, uint32_t addr) {
+    sdcard_state_t *sdcard = device->sdcard;
+    uint8_t *buffer = &sd_buffer[0][0];
+    uint8_t result;
+
+    // Calculate adjusted address
+    uint32_t sd_addr = addr;
+    if (sdcard->type == SD_CARD_TYPE_SDSC) {
+        sd_addr *= 512;
+    }
+
+    sd_select(sdcard->bus_id);
+    sd_command(SD_CMD_24_WRITE_BLOCK, addr);
+    result = sd_response_r1();
+    if (result != SD_RESPONSE_R1_CARD_READY) {
+        sd_unselect();
+        debug("SD card refused write block command");
+        return;
+    }
+
+
+    // Start block token
+    spi_transfer(SD_CMD_SINGLE_BLOCK_START_TOKEN);
+
+
+    // Get buffer from FPGA
+    //for (uint_fast16_t i = 0; i < 512; i++) {
+    //  buffer[i] = read_byte_nochecks();
+    //}
+
+    // Send buffer to card
+    sdcard_write_sector_from_buffer(buffer);
+
+    // Wait for the card to send a response token
+    result = wait_spi_response(100, 0xff);
+
+    if ((result & 0x1f) != SD_CMD_BLOCK_DATA_ACCEPTED) {
+        // Data not accepted?
+        sd_unselect();
+
+        debug_nocr("*** ERR SD data not accepted, reason: ");
+        debug_hex(result, 2);
+        debug("");
+
+        return;
+    } 
+
+    // Wait for data to be written
+    result = wait_spi_response2(250, 0xff);
+    if (result != 0xff) {
+        sd_unselect();
+
+        debug_nocr("*** ERR SD card timeout writing blk ");
+        debug_hex(addr, 2);
+        debug("");
+
+        return;
+    }
+
+    sd_command(SD_CMD_13_SEND_STATUS, 0);
+    uint16_t r2_result = sd_response_r2();
+    if ((r2_result | 0x0100) != SD_RESPONSE_R2_NO_ERROR) {
+        debug_nocr("*** R2 reply failed: ");
+        debug_hex(r2_result, 2);
+        debug("");
+        sd_unselect();
+        return;
+    }
+
+    sd_unselect();
+}
+
+
 int main() {
+
+    // After reset, HSI 48Mhz clock is in use
+    // HSISYS clock is preset to HSI/4 = 12MHz
+    // SYSCLK is preset to use HSISYS for clock source
+    // HCLK derives from SYSCLK through prescaler value x1
+    // PCLK derives from HCLK through prescaler value x1
+
+    // Turn on the GPIO peripheral clocks for all GPIO ports
+    RCC->IOPENR |= RCC_IOPENR_GPIOAEN | RCC_IOPENR_GPIOBEN | RCC_IOPENR_GPIOCEN | RCC_IOPENR_GPIODEN | RCC_IOPENR_GPIOFEN;
+
+    // Enable DMA clock
+    RCC->AHBENR |= RCC_AHBENR_DMA1EN;
+
+    // Enable the peripheral clock to USART1
+    RCC->APBENR2 |= RCC_APBENR2_USART1EN;
+
+    // Enable the peripheral clock to SPI1
+    RCC->APBENR2 |= RCC_APBENR2_SPI1EN;
+
+
+    // Select prescaler for SYSCLK --> HCLK
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // value 0b0000 (default) = precaler x1
+    //RCC->CFGR |= 0b1000 << RCC_CFGR_HPRE_Pos; // prescaler x2
+    //RCC->CFGR |= 0b1001 << RCC_CFGR_HPRE_Pos; // prescaler x4
+    //RCC->CFGR |= 0b1010 << RCC_CFGR_HPRE_Pos; // prescaler x8
+    //RCC->CFGR |= 0b1011 << RCC_CFGR_HPRE_Pos; // prescaler x16
+    //RCC->CFGR |= 0b1100 << RCC_CFGR_HPRE_Pos; // prescaler x64
+    //RCC->CFGR |= 0b1101 << RCC_CFGR_HPRE_Pos; // prescaler x128
+    //RCC->CFGR |= 0b1110 << RCC_CFGR_HPRE_Pos; // prescaler x256
+    //RCC->CFGR |= 0b1111 << RCC_CFGR_HPRE_Pos; // prescaler x512
+
+    // Select prescaler for HCLK --> PCLK
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // value 0b000 (default) = precaler x1
+    //RCC->CFGR |= 0b100 << RCC_CFGR_PPRE_Pos; // prescaler x2
+    //RCC->CFGR |= 0b101 << RCC_CFGR_PPRE_Pos; // prescaler x4
+    //RCC->CFGR |= 0b110 << RCC_CFGR_PPRE_Pos; // prescaler x8
+    //RCC->CFGR |= 0b111 << RCC_CFGR_PPRE_Pos; // prescaler x16
+
+    // Select divider for HSIKER (default: 3, 16MHz)
+    //RCC->CR &= ~RCC_CR_HSIKERDIV; // 0b000 (prescaler value 1) - 48MHz
+    //RCC->CR |= RCC_CR_HSIKERDIV_0; // 0b001 (prescaler value 2) - 24MHz
+    //RCC->CR |= RCC_CR_HSIKERDIV_1; // 0b010 (prescaler value 3) - 16MHz
+
+    // Select clock source for USART1 (default: PCLK)
+    RCC->CCIPR &= ~RCC_CCIPR_USART1SEL;
+    //RCC->CCIPR |= RCC_CCIPR_USART1SEL_0; // SYSCLK
+    //RCC->CCIPR |= RCC_CCIPR_USART1SEL_1; // HSIKER
+    //RCC->CCIPR |= RCC_CCIPR_USART1SEL_2; // LSE
+
+    // Reset USART1
+    RCC->APBRSTR2 |= RCC_APBRSTR2_USART1RST;
+    RCC->APBRSTR2 &= ~RCC_APBRSTR2_USART1RST;
+
+    // Reset SPI
+    RCC->APBRSTR2 |= RCC_APBRSTR2_SPI1RST;
+    RCC->APBRSTR2 &= ~RCC_APBRSTR2_SPI1RST;
+
+    // Reset DMA1
+    RCC->AHBRSTR |= RCC_AHBRSTR_DMA1RST;
+    RCC->AHBRSTR &= ~RCC_AHBRSTR_DMA1RST;
+
     // Setup device pins
     setup();
 
-    // Speed up the clock to 20MHz
-    clk_20MHz();
-
+    // Setup USART1
     serial_init();
+
+    // Speed up the clock
+    clk_48MHz();
 
     // Debug during startup
     debug_level = 5;
 
     init_clock();
-        
+
     debug("\n\r\n\r\n\r-- Startup");
+    _delay_ms(50);
 
     // Setup SPI pins
     spi_setup();
     sdcard_setup();
     rtc_setup();
 
+    debug("Setup done");
     // Settle down for a bit
     _delay_ms(10);
-
-    datetime_t datetime;
-    rtc_get(&datetime);
-
-    // TODO: Print datetime for console here instead of in rtc_read
 
     // Flash both lights to indicate startup
     for (uint8_t i = 0; i < 2; i++) {
         red_led_on();
         green_led_on();
-        _delay_ms(250);
+        _delay_ms(100);
+
         red_led_off();
         green_led_off();
-        _delay_ms(250);
+        _delay_ms(100);
     }
+
+    debug("Lights flashed");
 
     // Reset FPGA registers to default
     // This sets command mode, and ACSI bus direction IN
@@ -143,37 +321,41 @@ int main() {
 
     // Now turn debug down until requested
     debug_level = 5;
+
+    spi_fast();
     
     // Wait to read data
     set_data_in();
 
     while (1) {
 
-        uint8_t is_cmd;
-        uint8_t cmd_byte;
+        uint8_t is_cmd = 0;
+        uint8_t cmd_byte = 0;
+
         set_data_in();
         do {
             // Wait for A_INT
             while (get_int() == 0) {
+
                 // Check if debug level was changed by typing 0-9 on the serial port
                 int16_t serial_in = serial_receive_nowait();
                 if (serial_in >= 0) {
                     if (serial_in >= '0' && serial_in <= '9') {
                         debug_level = serial_in - '0';
-                        serial_send_progmem(PSTR("Debug level set to: "));
+                        serial_send("Debug level set to: ");
                         serial_sendchar('0' + debug_level);
-                        serial_send_progmem(PSTR("\r\n"));
+                        serial_send("\r\n");
                     }
                 }
 
                 // Check if SD cards were removed
-                if (sdcards[0].detected && (SDCARD0_DETECT_PORT.IN & SDCARD0_DETECT_BIT)) {
+                if (sdcards[0].detected && !sdcard0_present()) {
                     debug("SD card 0 removed");
                     sdcard_defaults(&sdcards[0], 0);
                     logical_drive[0].media_changed = 1;
                     set_acsi_id_mask();
                 }
-                if (sdcards[1].detected && (SDCARD1_DETECT_PORT.IN & SDCARD1_DETECT_BIT)) {
+                if (sdcards[1].detected && !sdcard1_present()) {
                     debug("SD card 1 removed");
                     sdcard_defaults(&sdcards[1], 1);
                     logical_drive[1].media_changed = 1;
@@ -181,14 +363,15 @@ int main() {
                 }
 
                 // Check if SD cards were inserted
-                if (sdcards[0].detected == 0 && (SDCARD0_DETECT_PORT.IN & SDCARD0_DETECT_BIT) == 0) {
+                if (sdcards[0].detected == 0 && sdcard0_present()) {
                     debug("SD card 0 inserted");
                     sdcards[0].detected = 1;
                     sdcard_init(&sdcards[0]);
                     logical_drive[0].media_changed = 1;
                     set_acsi_id_mask();
                 }
-                if (sdcards[1].detected == 0 && (SDCARD1_DETECT_PORT.IN & SDCARD1_DETECT_BIT) == 0) {
+                
+                if (sdcards[1].detected == 0 && sdcard1_present()) {
                     debug("SD card 1 inserted");
                     sdcards[1].detected = 1;
                     sdcard_init(&sdcards[1]);
@@ -198,7 +381,7 @@ int main() {
             }
 
             // Pick up byte from data bus and A_CMD pin
-            is_cmd = A_CMD_PORT.IN & A_CMD_BIT;
+            is_cmd = A_CMD_PORT->IDR & _BV(A_CMD_BIT) ? 1 : 0;
             cmd_byte = read_data_port();
 
             strobe_cs();
@@ -208,9 +391,9 @@ int main() {
         uint8_t acsi_device = cmd_byte >> 5;
         acsi_opcode_t opcode = cmd_byte & 0x1f;
 
-        // Clock rate is 100Hz. Find command phase timeout length of 250ms in ticks 
-        uint32_t target_time = 3000L / (1000 / CLOCK_RATE);
-        start_clock();
+        // Find command phase timeout length of 250ms in ticks 
+        uint32_t start_time = get_clock();
+        uint32_t target_time = start_time + 250;
 
         // Work out which device was selected from the ACSI ID of the command byte
         logical_drive_t* selected_device;
@@ -365,6 +548,6 @@ int main() {
         write_extra_byte();
         extra_data_byte &= 0b10111110;
     }
-    
+
     return 0;
 }

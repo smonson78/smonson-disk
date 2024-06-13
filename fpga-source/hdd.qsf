@@ -65,13 +65,13 @@ set_location_assignment PIN_76 -to f_a1
 set_location_assignment PIN_74 -to f_rw
 set_location_assignment PIN_73 -to f_irq
 set_location_assignment PIN_72 -to f_drq
-set_location_assignment PIN_50 -to a_cmd
+set_location_assignment PIN_28 -to a_cmd
 set_location_assignment PIN_42 -to a_data[0]
-set_location_assignment PIN_48 -to a_cs
+set_location_assignment PIN_34 -to a_cs
 set_location_assignment PIN_41 -to a_data[1]
-set_location_assignment PIN_49 -to a_bus_dir
+set_location_assignment PIN_29 -to a_bus_dir
 set_location_assignment PIN_40 -to a_data[2]
-set_location_assignment PIN_51 -to a_int
+set_location_assignment PIN_49 -to a_int
 set_location_assignment PIN_39 -to a_data[3]
 set_location_assignment PIN_38 -to a_data[4]
 set_location_assignment PIN_37 -to a_data[5]
@@ -84,7 +84,7 @@ set_global_assignment -name NUM_PARALLEL_PROCESSORS 2
 set_global_assignment -name ENABLE_OCT_DONE OFF
 set_global_assignment -name USE_CONFIGURATION_DEVICE ON
 set_global_assignment -name RESERVE_ALL_UNUSED_PINS "AS INPUT TRI-STATED WITH WEAK PULL-UP"
-set_location_assignment PIN_33 -to a_reset
-set_location_assignment PIN_52 -to a_ready
-set_location_assignment PIN_53 -to a_extra
-set_location_assignment PIN_54 -to a_extra_2
+set_location_assignment PIN_5 -to a_reset
+set_location_assignment PIN_50 -to a_ready
+set_location_assignment PIN_26 -to a_extra
+set_location_assignment PIN_27 -to a_extra_2
