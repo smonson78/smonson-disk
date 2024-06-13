@@ -108,6 +108,8 @@ static inline uint8_t get_int() {
 static inline void strobe_cs() {
     A_CS_PORT->BSRR = BSR_HIGH(A_CS_BIT);
     A_CS_PORT->BSRR = BSR_HIGH(A_CS_BIT);
+    // This can't be too fast or it'll be missed by the FPGA
+    // (assuming the FPGA is synchronised by a clock)
     A_CS_PORT->BSRR = BSR_LOW(A_CS_BIT);
     A_CS_PORT->BSRR = BSR_LOW(A_CS_BIT);
 }

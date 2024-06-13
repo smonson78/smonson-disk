@@ -22,7 +22,7 @@ OBJDUMP=arm-none-eabi-objdump
 STFLASH=st-flash --freq=1000k
 
 INCLUDE_PATHS=-I$(CUBE)/Drivers/CMSIS/Device/ST/$(FAMILY)/Include -I$(CUBE)/Drivers/CMSIS/Include
-CFLAGS=-g -Wall -mcpu=$(MCPU) -mthumb --specs=picolibc.specs -DF_CLK=$(FCLK) \
+CFLAGS=-g -Wall -O3 -mcpu=$(MCPU) -mthumb --specs=picolibc.specs -DF_CLK=$(FCLK) \
 	-DF_PCLK=$(PCLK) -DF_HCLK=$(HCLK) -D$(DEVICE) $(INCLUDE_PATHS)
 LDFLAGS=-mcpu=$(MCPU) --specs=picolibc.specs -Tlinker.ld
 LDLIBS=

@@ -161,28 +161,90 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
         write_extra_byte();
 #endif
 
+        // Which buffer is currently being DMA-ed
+        uint_fast8_t buf_no = 0;
+
         for (uint16_t i = 0; i < transfer_length; i++) {
+            uint_fast8_t buf_other = buf_no ^ 1;
+
+            // debug_nocr("Starting transfer for i = ");
+            // debug_decimal(i);
+            // debug("");
+
             // Wait for block ready token.
-            result = wait_spi_response(100, 0xff);
+            //result = wait_spi_response(100, 0xff);
+            result = wait_spi_response(255, 0xff);
             if (result == 0xff) {
                 sd_unselect();
                 green_led_off();
                 debug_nocr("*** ERR SD timeout reading blk ");
-                debug_hex(addr, 8);
+                debug_hex(addr + i, 8);
                 debug("");
+
+                // FIXME: We are gonna need to handle errors from the middle of a transfer
+                // by resetting the DMA and SPI hardware.
                 device->sense_key = CNT_ERR_DATA_ERROR;
                 return STATUS_CHECK_CONDITION;
             }
 
             if (result == SD_CMD_BLOCK_READY_TOKEN) {
                 // Go!
-                //debug("Got block ready token");
+                debug_nocr("Starting DMA read block ");
+                debug_decimal(i);
+                debug_nocr(" in buffer ");
+                debug_decimal(buf_no);
+                debug("");
 
-                sdcard_read_sector_to_buffer(sd_buffer[0]);
-                for (uint_fast16_t i = 0; i < 512; i++) {
-                    write_byte_nochecks(sd_buffer[0][i]);
+                // Start getting a block of data off the card
+                sdcard_start_read_sector_to_buffer(sd_buffer[buf_no]);
+
+                if (i > 0) {
+                    // Send the last completed buffer (buf_other) back to the FPGA
+
+                    debug_nocr("Sending completed sector ");
+                    debug_decimal(i - 1);
+                    debug_nocr(" in buffer ");
+                    debug_decimal(buf_other);
+                    debug("");
+
+                    uint8_t *p = sd_buffer[buf_other];
+                    uint8_t *end = p + 512;
+                    while (p < end) {
+                        write_byte_nochecks(*(p++));
+                    }
                 }
-            }            
+
+                // debug_nocr("Finishing DMA read block ");
+                // debug_decimal(i);
+                // debug_nocr(" in buffer ");
+                // debug_decimal(buf_no);
+                // debug("");
+                sdcard_end_read_sector_to_buffer();
+
+                // Flip buffers
+                buf_no = buf_other;
+            } else {
+                debug_nocr("*** ERR SD response not ready token ");
+                debug_hex(addr + i, 8);
+                debug("");
+
+                // FIXME: We are gonna need to handle errors from the middle of a transfer
+                // by resetting the DMA and SPI hardware.
+                device->sense_key = CNT_ERR_DATA_ERROR;
+                return STATUS_CHECK_CONDITION;
+            }
+        }
+
+        buf_no = buf_no ^ 1;
+
+        debug_nocr("Sending completed sector ");
+        debug_nocr("in buffer ");
+        debug_decimal(buf_no);
+        debug("");
+
+        // Send the last buffer back to the FPGA
+        for (uint_fast16_t count = 0; count < 512; count++) {
+            write_byte_nochecks(sd_buffer[buf_no][count]);
         }
 
 #ifdef DOUBLE_BUFFERED_MODE

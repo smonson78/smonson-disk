@@ -320,7 +320,7 @@ int main() {
     set_acsi_id_mask();
 
     // Now turn debug down until requested
-    //debug_level = 0;
+    debug_level = 5;
 
     spi_fast();
     
@@ -369,35 +369,14 @@ int main() {
                     sdcard_init(&sdcards[0]);
                     logical_drive[0].media_changed = 1;
                     set_acsi_id_mask();
-
-                    // For test: do a block read
-                    debug_read_block(&logical_drive[0], 0);
-
                 }
+                
                 if (sdcards[1].detected == 0 && sdcard1_present()) {
                     debug("SD card 1 inserted");
                     sdcards[1].detected = 1;
                     sdcard_init(&sdcards[1]);
                     logical_drive[1].media_changed = 1;
                     set_acsi_id_mask();
-#if 0
-                    // For test: do a block read
-                    uint_fast32_t start_time = global_ticks;
-                    debug("Read block 3");
-                    debug_read_block(&logical_drive[1], 3);
-                    debug("Read block 0");
-                    debug_read_block(&logical_drive[1], 0);
-                    debug("Write block 1");
-                    debug_write_block(&logical_drive[1], 1);
-                    debug("Read block 1");
-                    debug_read_block(&logical_drive[1], 1);
-                    debug("Read block 3");
-                    debug_read_block(&logical_drive[1], 3);
-                    uint_fast32_t end_time = global_ticks;
-                    debug_level = 5;
-                    debug_decimal(end_time - start_time);
-                    debug("ms");
-#endif
                 }
             }
 

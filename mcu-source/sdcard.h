@@ -143,4 +143,8 @@ uint8_t wait_spi_response2(uint8_t ms_delay, uint8_t x);
 void sdcard_read_sector_to_buffer(uint8_t *buffer);
 void sdcard_write_sector_from_buffer(uint8_t *buffer);
 
+void sdcard_start_read_sector_to_buffer(uint8_t *buffer);
+void sdcard_end_read_sector_to_buffer();
+
+
 #endif
