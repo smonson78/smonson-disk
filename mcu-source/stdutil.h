@@ -35,4 +35,5 @@
 #define OSPEED_VFAST(p) (0b11 << OSPEED_POS(p))
 
 #define BYTE_ACCESS(x) (*(volatile uint8_t *)(&x))
+#define HALFWORD_ACCESS(x) (*(volatile uint16_t *)(&x))
 #endif

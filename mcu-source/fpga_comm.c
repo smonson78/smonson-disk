@@ -56,12 +56,14 @@ void setup() {
     A_CS_PORT->OSPEEDR |= OSPEED_VFAST(A_CS_BIT);       
 
     // A_EXTRA, A_EXTRA2, A_READY - outputs
+    // A_EXTRA means a write to the extra data byte
     A_EXTRA_PORT->MODER &= MODE_MASK(A_EXTRA_BIT);
     A_EXTRA_PORT->MODER |= MODE_OUTPUT(A_EXTRA_BIT);
     A_EXTRA_PORT->OTYPER &= OTYPE_MASK(A_EXTRA_BIT);
     A_EXTRA_PORT->OSPEEDR &= OSPEED_MASK(A_EXTRA_BIT);
     A_EXTRA_PORT->OSPEEDR |= OSPEED_VFAST(A_EXTRA_BIT); 
 
+    // A_EXTRA_2  means a write to the ACSI IDs byte
     A_EXTRA_2_PORT->MODER &= MODE_MASK(A_EXTRA_2_BIT);
     A_EXTRA_2_PORT->MODER |= MODE_OUTPUT(A_EXTRA_2_BIT);
     A_EXTRA_2_PORT->OTYPER &= OTYPE_MASK(A_EXTRA_2_BIT);
@@ -184,6 +186,7 @@ void write_extra_byte() {
     // Data bus direction: AVR to FPGA
     uint8_t saved_bus_direction = bus_direction;
 
+    clear_extra2_data();
     set_extra_data();
     set_data_out();
 
@@ -207,6 +210,7 @@ void set_acsi_ids(uint8_t ids) {
     // Data bus direction: AVR to FPGA
     uint8_t saved_bus_direction = bus_direction;
 
+    clear_extra_data();
     set_extra2_data();
     set_data_out();
 

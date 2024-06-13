@@ -30,10 +30,6 @@ static inline void spi_wait_ready() {
 
 static inline void spi_start_with_value(uint8_t send)
 {
-	while ((SPI->SR & SPI_SR_FTLVL) == SPI_SR_FTLVL) {
-		 // Wait for idle
-	}
-
     BYTE_ACCESS(SPI->DR) = send;
 }
 
@@ -46,9 +42,6 @@ static inline void spi_out_nowait(uint8_t send)
 {
 	spi_wait_ready();
 	BYTE_ACCESS(SPI->DR) = send;
-	//while(!(SPI->SR & SPI_SR_TXE)) {
-	// Wait for send to start
-	//}
 }
 
 static inline uint8_t spi_in_nowait()

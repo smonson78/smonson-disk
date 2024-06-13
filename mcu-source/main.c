@@ -50,6 +50,147 @@ void set_acsi_id_mask() {
     set_acsi_ids(acsi_id_mask);
 }
 
+// Read one block from SD card for debugging
+void debug_read_block(logical_drive_t *device, uint32_t addr) {
+    sdcard_state_t *sdcard = device->sdcard;
+    uint8_t *buffer = &sd_buffer[0][0];
+
+    // Calculate adjusted address
+    uint32_t sd_addr = addr;
+    if (sdcard->type == SD_CARD_TYPE_SDSC) {
+        sd_addr *= 512;
+    }
+
+    sd_select(sdcard->bus_id);
+    sd_command(SD_CMD_17_BLOCK_READ, sd_addr);
+    uint8_t result = sd_response_r1();
+
+    // If a reply was received
+    if (result != 0xff) {
+
+        // Wait for card to be ready to send data. It will send 0xff while it's preparing
+        result = wait_spi_response(100, 0xff);
+        if (result == 0xff) {
+            sd_unselect();
+            green_led_off();
+            debug_nocr("*** ERR SD timeout reading blk ");
+            debug_hex(addr, 8);
+            debug("");
+            return;
+        }
+
+        if (result == SD_CMD_BLOCK_READY_TOKEN) {
+            // Go!
+            sdcard_read_sector_to_buffer(sd_buffer[0]);
+
+            /*
+            for (uint_fast16_t i = 0; i < 512; i++) {
+                write_byte_nochecks(sd_buffer[0][i]);
+            }
+            */
+
+        }
+    } else {
+        debug_nocr("*** ERR invalid resp from CMD17 reading blk ");
+        debug_hex(addr, 8);
+        debug("");
+        return;
+    }
+    sd_unselect();
+    
+    //debug_nocr("Read 512 bytes from sector ");
+    //debug_decimal(addr);
+    //debug(":");
+
+    for (int pos = 0; pos < 512; pos++) {
+        if (pos % 16 == 0) {
+            debug_hex(pos, 4);
+            debug_nocr(": ");
+        }
+        debug_hex(buffer[pos], 2);
+
+        if (pos % 16 == 15) {
+            debug("");
+        } else {
+            debug_nocr(" ");
+        }
+    }
+}
+
+// Read one block from SD card for debugging
+void debug_write_block(logical_drive_t *device, uint32_t addr) {
+    sdcard_state_t *sdcard = device->sdcard;
+    uint8_t *buffer = &sd_buffer[0][0];
+    uint8_t result;
+
+    // Calculate adjusted address
+    uint32_t sd_addr = addr;
+    if (sdcard->type == SD_CARD_TYPE_SDSC) {
+        sd_addr *= 512;
+    }
+
+    sd_select(sdcard->bus_id);
+    sd_command(SD_CMD_24_WRITE_BLOCK, addr);
+    result = sd_response_r1();
+    if (result != SD_RESPONSE_R1_CARD_READY) {
+        sd_unselect();
+        debug("SD card refused write block command");
+        return;
+    }
+
+
+    // Start block token
+    spi_transfer(SD_CMD_SINGLE_BLOCK_START_TOKEN);
+
+
+    // Get buffer from FPGA
+    //for (uint_fast16_t i = 0; i < 512; i++) {
+    //  buffer[i] = read_byte_nochecks();
+    //}
+
+    // Send buffer to card
+    sdcard_write_sector_from_buffer(buffer);
+
+    // Wait for the card to send a response token
+    result = wait_spi_response(100, 0xff);
+
+    if ((result & 0x1f) != SD_CMD_BLOCK_DATA_ACCEPTED) {
+        // Data not accepted?
+        sd_unselect();
+
+        debug_nocr("*** ERR SD data not accepted, reason: ");
+        debug_hex(result, 2);
+        debug("");
+
+        return;
+    } 
+
+    // Wait for data to be written
+    result = wait_spi_response2(250, 0xff);
+    if (result != 0xff) {
+        sd_unselect();
+
+        debug_nocr("*** ERR SD card timeout writing blk ");
+        debug_hex(addr, 2);
+        debug("");
+
+        return;
+    }
+
+    sd_command(SD_CMD_13_SEND_STATUS, 0);
+    uint16_t r2_result = sd_response_r2();
+    if ((r2_result | 0x0100) != SD_RESPONSE_R2_NO_ERROR) {
+        debug_nocr("*** R2 reply failed: ");
+        debug_hex(r2_result, 2);
+        debug("");
+        sd_unselect();
+        return;
+    }
+
+    sd_unselect();
+}
+
+
 int main() {
 
     // After reset, HSI 48Mhz clock is in use
@@ -61,11 +202,15 @@ int main() {
     // Turn on the GPIO peripheral clocks for all GPIO ports
     RCC->IOPENR |= RCC_IOPENR_GPIOAEN | RCC_IOPENR_GPIOBEN | RCC_IOPENR_GPIOCEN | RCC_IOPENR_GPIODEN | RCC_IOPENR_GPIOFEN;
 
+    // Enable DMA clock
+    RCC->AHBENR |= RCC_AHBENR_DMA1EN;
+
     // Enable the peripheral clock to USART1
     RCC->APBENR2 |= RCC_APBENR2_USART1EN;
 
     // Enable the peripheral clock to SPI1
     RCC->APBENR2 |= RCC_APBENR2_SPI1EN;
+
 
     // Select prescaler for SYSCLK --> HCLK
     RCC->CFGR &= ~RCC_CFGR_HPRE; // value 0b0000 (default) = precaler x1
@@ -99,6 +244,14 @@ int main() {
     // Reset USART1
     RCC->APBRSTR2 |= RCC_APBRSTR2_USART1RST;
     RCC->APBRSTR2 &= ~RCC_APBRSTR2_USART1RST;
+
+    // Reset SPI
+    RCC->APBRSTR2 |= RCC_APBRSTR2_SPI1RST;
+    RCC->APBRSTR2 &= ~RCC_APBRSTR2_SPI1RST;
+
+    // Reset DMA1
+    RCC->AHBRSTR |= RCC_AHBRSTR_DMA1RST;
+    RCC->AHBRSTR &= ~RCC_AHBRSTR_DMA1RST;
 
     // Setup device pins
     setup();
@@ -216,6 +369,10 @@ int main() {
                     sdcard_init(&sdcards[0]);
                     logical_drive[0].media_changed = 1;
                     set_acsi_id_mask();
+
+                    // For test: do a block read
+                    debug_read_block(&logical_drive[0], 0);
+
                 }
                 if (sdcards[1].detected == 0 && sdcard1_present()) {
                     debug("SD card 1 inserted");
@@ -223,6 +380,24 @@ int main() {
                     sdcard_init(&sdcards[1]);
                     logical_drive[1].media_changed = 1;
                     set_acsi_id_mask();
+#if 0
+                    // For test: do a block read
+                    uint_fast32_t start_time = global_ticks;
+                    debug("Read block 3");
+                    debug_read_block(&logical_drive[1], 3);
+                    debug("Read block 0");
+                    debug_read_block(&logical_drive[1], 0);
+                    debug("Write block 1");
+                    debug_write_block(&logical_drive[1], 1);
+                    debug("Read block 1");
+                    debug_read_block(&logical_drive[1], 1);
+                    debug("Read block 3");
+                    debug_read_block(&logical_drive[1], 3);
+                    uint_fast32_t end_time = global_ticks;
+                    debug_level = 5;
+                    debug_decimal(end_time - start_time);
+                    debug("ms");
+#endif
                 }
             }
 

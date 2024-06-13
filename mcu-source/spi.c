@@ -10,6 +10,9 @@ void spi_fast() {
 
     // Baud rate control: PCLK / 2 (24MHz) - BR = 0b000
     SPI->CR1 &= ~SPI_CR1_BR;
+    // 0b000 = /2 = 24MHz
+    //SPI->CR1 |= 0b001 << SPI_CR1_BR_Pos; // /4 = 12MHz
+    //SPI->CR1 |= 0b010 << SPI_CR1_BR_Pos; // /8 = 6MHz
 
     // Re-enable SPI
     SPI->CR1 |= SPI_CR1_SPE;
@@ -24,7 +27,8 @@ void spi_slow() {
     // Must be below 5MHz for MCP7951 and below 400KHz for SD card initialisation
     SPI->CR1 &= ~SPI_CR1_BR;
     //SPI->CR1 |= 0b100 << SPI_CR1_BR_Pos; // /x32
-    SPI->CR1 |= 0b111 << SPI_CR1_BR_Pos;
+    SPI->CR1 |= 0b110 << SPI_CR1_BR_Pos; // /128 = 375KHz
+    //SPI->CR1 |= 0b111 << SPI_CR1_BR_Pos; // /256 = 187KHz
 
     // Re-enable SPI
     SPI->CR1 |= SPI_CR1_SPE;
@@ -78,7 +82,7 @@ void spi_setup() {
     SPI->CR2 &= ~SPI_CR2_DS;
     SPI->CR2 |= 0b0111 << SPI_CR2_DS_Pos;
 
-    // Enable SPI not needed since spi_fast() will do it
+    // Enable SPI not needed since spi_slow() will do it
     
     spi_slow();
 }
