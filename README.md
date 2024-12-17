@@ -8,10 +8,10 @@ Features:
 - FPGA-controlled ACSI interface to ensure timing conforms to the specification
 - One front-mounted removable SD card socket
 - One internally-mounted microSD card socket
-- SD cards running on a 10MHz SPI bus (1.25MB/s throughput)
+- SD cards running on a 24MHz SPI bus
 - Battery-backed real-time clock
-- GUI configuration from ST (once someone writes it...) and stored in EEPROM
-- Open-source, so if you want a feature all you have to do is write it and fit it into the 110KB of code space that is currently left!
+- GUI configuration from ST (once someone writes it...)
+- Open-source, so if you want a feature all you have to do is write it and fit it into the 8KB of code space that is currently left!
 
 ## How to build and upload:
 
