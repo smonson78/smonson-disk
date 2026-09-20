@@ -18,8 +18,6 @@
 #define F_BAUD 57600L
 #define SERIAL_FORMAT (DATABITS_8 | STOPBITS_1 | PARITY_NONE)
 
-//#define SERIAL_TX_PORT GPIOB
-//#define SERIAL_TX_PIN _BV(6)
 #define USART1_ALT_POSITION
 
 // ------------- don't change anything below this line, except to add new support

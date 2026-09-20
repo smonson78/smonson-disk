@@ -30,7 +30,7 @@ void serial_init()
     tx_len = 0;
     tx_idle = 1;
 
-    // Enable UART1 device, enable transmitter, enable receiver
+    // Enable UART1 peripheral
     USART1->CR1 |= USART_CR1_UE;
 
     // Setup baud rate
@@ -54,7 +54,7 @@ void serial_init()
     // Note: hard-coded register number due to there being 8 per register
     // Clear these - which is the default anyway - to get Alternate Function 0
     TX_PORT->AFR[0] &= ~(0b1111 << (4 * TX_BIT));
-    TX_PORT->AFR[0] &= ~(0b1111 << (4 * RX_BIT));
+    RX_PORT->AFR[0] &= ~(0b1111 << (4 * RX_BIT));
 
     // Select Alternate Function for the GPIO pin modes
     TX_PORT->MODER &= MODE_MASK(TX_BIT);

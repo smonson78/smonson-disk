@@ -42,7 +42,7 @@ set_global_assignment -name DEVICE 5M80ZT100I5
 set_global_assignment -name TOP_LEVEL_ENTITY hdd
 set_global_assignment -name ORIGINAL_QUARTUS_VERSION 19.1.0
 set_global_assignment -name PROJECT_CREATION_TIME_DATE "15:24:56  JUNE 21, 2020"
-set_global_assignment -name LAST_QUARTUS_VERSION "23.1std.0 Lite Edition"
+set_global_assignment -name LAST_QUARTUS_VERSION "25.1std.0 Lite Edition"
 set_global_assignment -name PROJECT_OUTPUT_DIRECTORY output_files
 set_global_assignment -name MIN_CORE_JUNCTION_TEMP "-40"
 set_global_assignment -name MAX_CORE_JUNCTION_TEMP 125
@@ -84,7 +84,6 @@ set_global_assignment -name NUM_PARALLEL_PROCESSORS 2
 set_global_assignment -name ENABLE_OCT_DONE OFF
 set_global_assignment -name USE_CONFIGURATION_DEVICE ON
 set_global_assignment -name RESERVE_ALL_UNUSED_PINS "AS INPUT TRI-STATED WITH WEAK PULL-UP"
-set_location_assignment PIN_5 -to a_reset
 set_location_assignment PIN_50 -to a_ready
 set_location_assignment PIN_26 -to a_extra
 set_location_assignment PIN_27 -to a_extra_2

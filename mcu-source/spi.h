@@ -16,7 +16,9 @@
 #define SPI_CLK_PORT GPIOB
 #define SPI_CLK_BIT 3
 
+
 void spi_setup();
+
 uint8_t spi_transfer(uint8_t send);
 void spi_fast();
 void spi_slow();

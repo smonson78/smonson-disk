@@ -34,6 +34,7 @@ void spi_slow() {
     SPI->CR1 |= SPI_CR1_SPE;
 }
 
+// SD Card SPI setup - USART1
 void spi_setup() {
    	// SPI output pins
 

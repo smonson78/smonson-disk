@@ -208,6 +208,9 @@ int main() {
     // Enable the peripheral clock to USART1
     RCC->APBENR2 |= RCC_APBENR2_USART1EN;
 
+    // Enable the peripheral clock to USART2
+    RCC->APBENR1 |= RCC_APBENR1_USART2EN;
+
     // Enable the peripheral clock to SPI1
     RCC->APBENR2 |= RCC_APBENR2_SPI1EN;
 
@@ -241,9 +244,15 @@ int main() {
     //RCC->CCIPR |= RCC_CCIPR_USART1SEL_1; // HSIKER
     //RCC->CCIPR |= RCC_CCIPR_USART1SEL_2; // LSE
 
+    // Clock source for USART2 is always on PCLK
+
     // Reset USART1
     RCC->APBRSTR2 |= RCC_APBRSTR2_USART1RST;
     RCC->APBRSTR2 &= ~RCC_APBRSTR2_USART1RST;
+
+    // Reset USART2
+    RCC->APBRSTR1 |= RCC_APBRSTR1_USART2RST;
+    RCC->APBRSTR1 &= ~RCC_APBRSTR1_USART2RST;    
 
     // Reset SPI
     RCC->APBRSTR2 |= RCC_APBRSTR2_SPI1RST;
@@ -273,7 +282,23 @@ int main() {
     // Setup SPI pins
     spi_setup();
     sdcard_setup();
+
+    // Init USART2 to handle real-time clock communication
     rtc_setup();
+
+    // See what the clock says
+    uint8_t datetime[16];
+    memset(datetime, 0, 16);
+
+    //rtc_set((datetime_t *)datetime);
+
+    rtc_get((datetime_t *)datetime);
+    debug("Got clock data:");
+    for (uint8_t i = 0; i < 16; i++) {
+        debug_hex(datetime[i], 2);
+        debug_nocr(" ");
+    }
+    debug("\n");
 
     debug("Setup done");
     // Settle down for a bit

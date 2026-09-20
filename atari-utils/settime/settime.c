@@ -71,7 +71,7 @@ int main(int argc, char **argv)
     printf("Smonson Disk set clock\n");
 
     if (cli_len != 19) {
-        printf("Date format: YYYY-MM-DD HH:MM:SSplz\n");
+        printf("Date format: YYYY-MM-DD HH:MM:SS\n");
     } else {
         datetime.year = getnumber(_basepage + 129, 4);
         datetime.month = getnumber(_basepage + 129 + 5, 2);

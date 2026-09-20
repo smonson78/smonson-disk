@@ -60,7 +60,7 @@ module tb();
 	    // Atari signals
 	    f_data, f_cs, f_bus_dir, f_reset, f_ack, f_a1, f_rw, f_irq, f_drq,
 	    // AVR signals
-	    a_reset, a_data, a_cs, a_bus_dir, a_cmd, a_int, a_extra, a_extra2, a_ready
+	    a_data, a_cs, a_bus_dir, a_cmd, a_int, a_extra, a_extra2, a_ready
     );
 
     always begin
@@ -291,7 +291,7 @@ module tb();
         #5;
         extra_data_write[6] = 0;
 
-        #100;
+        #200;
 
 
 
@@ -345,6 +345,8 @@ module tb();
             // Atari waits for IRQ
             wait (f_irq);
 
+            #2;
+
             // Atari strobes data in
             data = 0;
             f_rw = 0;
@@ -359,6 +361,8 @@ module tb();
 
             // AVR Picks up the byte
             wait (a_int);
+            #2;
+            
             a_ready = 0;
             #5;
             a_cs = 1;
@@ -420,6 +424,7 @@ module tb();
 
         // Now AVR requests the next byte with a_ready, although /ACK is still asserted from the previous byte
         a_ready = 1;
+        #1;
 
         // The FPGA shouldn't assert /DRQ until /ACK is clear (250ns according to the Implementation Guide)
         #6;
@@ -429,7 +434,7 @@ module tb();
         #1;
 
         // ... the remaining X number of bytes (512 in reality)
-        repeat (16) begin
+        repeat (15) begin
             // AVR is ready to receive a data-mode byte
             a_ready = 1;
 
@@ -536,7 +541,7 @@ module tb();
 
         #15;
 
-        // Start a short WRITE command - byte 0
+        // Start a short READ command - byte 0
         data[7:5] = 3'b0; // ACSI_ID = 0
         data[4:0] = 5'b00110; // OPCODE = 0x06
         #5;
@@ -598,14 +603,15 @@ module tb();
         a_extra = 1;
         a_bus_dir = 1;
         #1;
-        extra_data_write[1] = 1;
-        extra_data_write[5] = 0;
+        extra_data_write[1] = 1; // Double-buffered mode
+        extra_data_write[5] = 0; // Data mode
         avr_data = extra_data_write;
         a_cs = 1;
         #5;
         a_cs = 0;
         #5;
         a_extra = 0;
+        a_extra2 = 0;
         #5;
 
 

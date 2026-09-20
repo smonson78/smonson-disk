@@ -9,14 +9,14 @@
     _delay_us_count < x; _delay_us_count++) {} } while(0);
 
 // Conveniences for setting various registers
-#define MODE_POS(p) (p * 2)
+#define MODE_POS(p) ((p) * 2)
 #define MODE_MASK(p) (~(0b11 << MODE_POS(p)))
 #define MODE_BITS(p) (0b11 << MODE_POS(p))
 #define MODE_OUTPUT(p) (0b01 << MODE_POS(p))
 #define MODE_ALT_FUNC(p) (0b10 << MODE_POS(p))
 
-#define BSR_HIGH(p) (1 << p)
-#define BSR_LOW(p) (1 << (16 + p))
+#define BSR_HIGH(p) (1 << (p))
+#define BSR_LOW(p) (1 << (16 + (p)))
 
 #define OTYPE_POS(p) (p)
 #define OTYPE_MASK(p) (~(0b1 << OTYPE_POS(p)))

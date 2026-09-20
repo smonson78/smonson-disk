@@ -5,9 +5,22 @@
 
 #include "stdutil.h"
 
-#define CLOCK_PORT GPIOD
-#define CLOCK_PIN 2
+#define RTC_SS_PORT GPIOD
+#define RTC_SS_PIN 2
 
+// PA8 - Alternate Function 1
+#define RTC_MOSI_PORT GPIOA
+#define RTC_MOSI_BIT 8
+
+// PA15 - Alternate Function 1
+#define RTC_MISO_PORT GPIOA
+#define RTC_MISO_BIT 15
+
+// PB9 - Alternate Function 1
+#define RTC_CLK_PORT GPIOB
+#define RTC_CLK_BIT 9
+
+#define MCP7951_CLRRAM 0b01010100
 #define MCP7951_READ 0b00010011
 #define MCP7951_WRITE 0b00010010
 
