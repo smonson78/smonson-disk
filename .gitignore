@@ -6,6 +6,7 @@
 mcu-source/atpack
 mcu-source/hdd.elf
 mcu-source/hdd.bin
+mcu-source/STM32CubeC0
 fpga-source/output_files/
 fpga-source/db/
 fpga-source/incremental_db
