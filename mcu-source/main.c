@@ -290,7 +290,7 @@ int main() {
     uint8_t datetime[16];
     memset(datetime, 0, 16);
 
-    //rtc_set((datetime_t *)datetime);
+    // rtc_set((datetime_t *)datetime);
 
     rtc_get((datetime_t *)datetime);
     debug("Got clock data:");

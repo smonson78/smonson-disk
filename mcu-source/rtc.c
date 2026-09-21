@@ -247,17 +247,17 @@ void rtc_write(uint8_t addr, uint8_t *data, uint8_t len) {
 
     rtc_select();
 
-    debug("RTC write command");
+    // debug("RTC write command");
     rtc_txrx(MCP7951_WRITE);
-    debug("RTC write address");
+    // debug("RTC write address");
     rtc_txrx(addr); // address
 
-    debug("RTC write data");
+    // debug("RTC write data");
     for (uint8_t i = 0; i < len; i++) {
       rtc_txrx(data[i]);
     }
 
-    debug("RTC write command completed");
+    // debug("RTC write command completed");
 
     rtc_unselect();
 }
@@ -277,11 +277,11 @@ void rtc_read(uint8_t addr, uint8_t *dest, uint8_t len) {
         uint8_t temp = rtc_txrx(0xff);
         dest[i] = temp;
 
-        debug_nocr("RTC read - byte");
-        debug_decimal(i);
-        debug_nocr(" [");
-        debug_decimal(temp);
-        debug("]\n");
+        // debug_nocr("RTC read - byte");
+        // debug_decimal(i);
+        // debug_nocr(" [");
+        // debug_decimal(temp);
+        // debug("]\n");
     }
     // debug("RTC read command completed");
     
@@ -359,9 +359,9 @@ void rtc_set(datetime_t *datetime) {
     for (uint8_t i = 0; i < 64; i++) {
         rtc_read(4, &rtc_buf[0], 1);
 
-        debug_nocr("Read ");
-        debug_hex(rtc_buf[0], 2);
-        debug(" from addr 4");        
+        // debug_nocr("Read ");
+        // debug_hex(rtc_buf[0], 2);
+        // debug(" from addr 4");        
 
         if (rtc_buf[0] & _BV(5)) {
             success = 1;
