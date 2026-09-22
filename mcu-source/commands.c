@@ -124,11 +124,15 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
     //    transfer_length = 256;
     //}
 
-    debug_nocr("READ (6) ");
-    debug_decimal(transfer_length);
-    debug_nocr(" blocks from sector ");
-    debug_hex(addr, 8);
-    debug("");
+#ifdef DEBUG_ACSI_CMD
+    if (debug_level >= 6) {
+        debug_nocr("READ (6) ");
+        debug_decimal(transfer_length);
+        debug_nocr(" blocks from sector ");
+        debug_hex(addr, 8);
+        debug("");
+    }
+#endif
 
     if ((addr + transfer_length - 1) >= sdcard->capacity) {
         device->sense_key = CMD_ERR_INVALID_ADDRESS;
@@ -189,11 +193,11 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
 
             if (result == SD_CMD_BLOCK_READY_TOKEN) {
                 // Go!
-                debug_nocr("Starting DMA read block ");
-                debug_decimal(i);
-                debug_nocr(" in buffer ");
-                debug_decimal(buf_no);
-                debug("");
+                // debug_nocr("Starting DMA read block ");
+                // debug_decimal(i);
+                // debug_nocr(" in buffer ");
+                // debug_decimal(buf_no);
+                // debug("");
 
                 // Start getting a block of data off the card
                 sdcard_start_read_sector_to_buffer(sd_buffer[buf_no]);
@@ -201,11 +205,11 @@ acsi_status_t acsi_read(logical_drive_t *device, uint8_t cmd_offset) {
                 if (i > 0) {
                     // Send the last completed buffer (buf_other) back to the FPGA
 
-                    debug_nocr("Sending completed sector ");
-                    debug_decimal(i - 1);
-                    debug_nocr(" in buffer ");
-                    debug_decimal(buf_other);
-                    debug("");
+                    // debug_nocr("Sending completed sector ");
+                    // debug_decimal(i - 1);
+                    // debug_nocr(" in buffer ");
+                    // debug_decimal(buf_other);
+                    // debug("");
 
                     uint8_t *p = sd_buffer[buf_other];
                     uint8_t *end = p + 512;

@@ -4,6 +4,9 @@
 #include <stdint.h>
 
 #define DEBUG_ENABLED
+//#define DEBUG_ACSI_BUS
+#define DEBUG_ACSI_CMD
+//#define DEBUG_SDCARD_CMD
 
 extern uint8_t debug_level;
 
